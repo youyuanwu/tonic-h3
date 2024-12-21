@@ -73,7 +73,7 @@ where
 }
 
 pub fn channel_h3(
-    conn: h3_quinn::quinn::Connection,
+    send_request: h3::client::SendRequest<h3_quinn::OpenStreams, Bytes>,
     uri: Uri,
 ) -> impl tonic::client::GrpcService<
     tonic::body::BoxBody,
@@ -81,13 +81,9 @@ pub fn channel_h3(
     ResponseBody = H3IncomingClient<h3_quinn::RecvStream, Bytes>,
 > {
     tower::service_fn(move |req: hyper::Request<tonic::body::BoxBody>| {
-        let conn = conn.clone();
+        let mut send_request = send_request.clone();
         let uri = uri.clone();
         async move {
-            tracing::debug!("connecting h3 conn");
-            // h3 connection
-            let (mut driver, mut send_request) =
-                h3::client::new(h3_quinn::Connection::new(conn.clone())).await?;
             let (parts, mut body) = req.into_parts();
             let mut head_req = hyper::Request::from_parts(parts, ());
             // send header
@@ -103,43 +99,44 @@ pub fn channel_h3(
 
             *head_req.uri_mut() = uri2;
 
+            // send header.
             let stream = send_request.send_request(head_req).await?;
 
-            // wait for shutdown.
-            tokio::spawn(async move {
-                tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-                tracing::debug!("shutdown connection");
-                if let Err(e) = std::future::poll_fn(|cx| driver.poll_close(cx)).await {
-                    println!("driver error {}", e);
-                }
-            });
-            // TODO:send body
-            // stream.send_data(body).await;
             let (mut w, mut r) = stream.split();
             // send body in backgound
-            tokio::spawn(async move {
+            let send_body = async move {
                 loop {
                     match body.frame().await {
                         Some(Ok(f)) => {
                             if f.is_data() {
                                 tracing::debug!("sending body :{:?}", f);
-                                if let Err(e) = w.send_data(f.into_data().unwrap()).await {
+                                w.send_data(f.into_data().unwrap()).await.inspect_err(|e| {
                                     tracing::debug!("w send_data error: {}", e);
-                                }
+                                })?;
                             } else if f.is_trailers() {
                                 tracing::debug!("sending trailer :{:?}", f);
-                                if let Err(e) = w.send_trailers(f.into_trailers().unwrap()).await {
-                                    tracing::debug!("w send_data error: {}", e);
-                                }
+                                w.send_trailers(f.into_trailers().unwrap())
+                                    .await
+                                    .inspect_err(|e| {
+                                        tracing::debug!("w send_trailers error: {}", e);
+                                    })?;
                             }
                         }
                         Some(Err(e)) => {
                             tracing::debug!("frame error: {}", e);
+                            // This maybe needed for grpc streaming?
+                            panic!("client tries to send a status?")
                         }
                         None => break,
                     }
                 }
-            });
+                w.finish().await.inspect_err(|e| {
+                    tracing::debug!("w finish error: {}", e);
+                })?;
+                Ok::<(), h3::Error>(())
+            };
+            tokio::spawn(send_body);
+
             // return resp.
             tracing::debug!("recv header");
             let (resp, _) = r.recv_response().await?.into_parts();

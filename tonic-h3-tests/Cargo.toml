@@ -20,6 +20,7 @@ h3-quinn = "*"
 tokio-util.workspace = true
 tokio.workspace = true
 tonic-h3.workspace = true
+h3.workspace = true
 
 [build-dependencies]
 tonic-build.workspace = true

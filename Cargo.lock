@@ -1708,6 +1708,7 @@ dependencies = [
 name = "tonic-h3-test"
 version = "0.1.0"
 dependencies = [
+ "h3",
  "h3-quinn",
  "http",
  "hyper",

@@ -26,6 +26,7 @@ prost-build = "0.13"
 http = "*"
 pin-project-lite = "0.2"
 tracing = { version = "0.1", features = ["log"] }
+h3 = "0.0.6"
 
 # crates in this workspace
 tonic-h3 = {path = "tonic-h3"}
