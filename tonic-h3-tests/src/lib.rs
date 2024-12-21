@@ -1,9 +1,28 @@
+tonic::include_proto!("helloworld"); // The string specified here must match the proto package name
+
+#[derive(Default)]
+pub struct HelloWorldService {}
+
+#[tonic::async_trait]
+impl crate::greeter_server::Greeter for HelloWorldService {
+    async fn say_hello(
+        &self,
+        req: tonic::Request<HelloRequest>,
+    ) -> Result<tonic::Response<HelloReply>, tonic::Status> {
+        let name = req.into_inner().name;
+        tracing::debug!("say_hello: {}", name);
+        Ok(tonic::Response::new(HelloReply {
+            message: format!("hello {}", name),
+        }))
+    }
+}
+
 #[cfg(test)]
 mod h3_tests {
     use std::{sync::Arc, time::Duration};
 
-    use hyper_h3::incoming_conn;
     use tokio_util::sync::CancellationToken;
+    use tonic_h3::incoming_conn;
 
     fn make_test_cert(subject_alt_names: Vec<String>) -> (rcgen::Certificate, rcgen::KeyPair) {
         use rcgen::{generate_simple_self_signed, CertifiedKey};
@@ -65,18 +84,16 @@ mod h3_tests {
         let listen_addr = endpoint.local_addr().unwrap();
         tracing::debug!("listenaddr : {}", listen_addr);
 
-        let hello_svc = tonic_shared::HelloWorldService {};
-        let svc = tonic::service::Routes::new(tonic_shared::greeter_server::GreeterServer::new(
-            hello_svc,
-        ));
+        let hello_svc = crate::HelloWorldService {};
+        let svc = tonic::service::Routes::new(crate::greeter_server::GreeterServer::new(hello_svc));
         let token = CancellationToken::new();
 
-        let reqs = hyper_h3::incoming_req(incoming_conn(endpoint.clone()));
+        let reqs = tonic_h3::incoming_req(incoming_conn(endpoint.clone()));
 
         // run server in background
         let token_cp = token.clone();
         let h_sv = tokio::spawn(async move {
-            hyper_h3::serve_tonic(svc, reqs, async move { token_cp.cancelled().await }).await
+            tonic_h3::serve_tonic(svc, reqs, async move { token_cp.cancelled().await }).await
         });
 
         // send client request
@@ -113,11 +130,11 @@ mod h3_tests {
         tracing::debug!("QUIC connection established");
 
         let uri = format!("https://{}", listen_addr).parse().unwrap();
-        let channel = hyper_h3::channel_h3(conn, uri);
+        let channel = tonic_h3::channel_h3(conn, uri);
 
-        let mut client = tonic_shared::greeter_client::GreeterClient::new(channel);
+        let mut client = crate::greeter_client::GreeterClient::new(channel);
 
-        let request = tonic::Request::new(tonic_shared::HelloRequest {
+        let request = tonic::Request::new(crate::HelloRequest {
             name: "Tonic".into(),
         });
         let response = client.say_hello(request).await.unwrap();

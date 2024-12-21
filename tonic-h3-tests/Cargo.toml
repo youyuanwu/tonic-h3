@@ -1,13 +1,16 @@
 [package]
-name = "tonic_h3_test"
+name = "tonic-h3-test"
 version = "0.1.0"
 edition = "2021"
+publish = false
 
 [dependencies]
+prost.workspace = true
+tonic.workspace = true
+tracing = "*"
 
 [dev-dependencies]
 tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt"]}
-tracing = "*"
 http = "*"
 hyper = "*"
 quinn = "*"
@@ -16,6 +19,10 @@ rcgen = "*"
 h3-quinn = "*"
 tokio-util.workspace = true
 tokio.workspace = true
-tonic.workspace = true
-hyper-h3.workspace = true
-tonic_shared.workspace = true
+tonic-h3.workspace = true
+
+[build-dependencies]
+tonic-build.workspace = true
+
+[package.metadata.rust-analyzer]
+cargo.loadOutDirsFromCheck = true

@@ -618,27 +618,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hyper-h3"
-version = "0.1.0"
-dependencies = [
- "async-stream",
- "futures",
- "futures-util",
- "h3",
- "h3-quinn",
- "http",
- "http-body-util",
- "hyper",
- "hyper-util",
- "pin-project",
- "tokio",
- "tokio-stream",
- "tonic",
- "tower 0.5.2",
- "tracing",
-]
-
-[[package]]
 name = "hyper-timeout"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1705,32 +1684,44 @@ dependencies = [
 ]
 
 [[package]]
-name = "tonic_h3_test"
+name = "tonic-h3"
+version = "0.1.0"
+dependencies = [
+ "async-stream",
+ "futures",
+ "futures-util",
+ "h3",
+ "h3-quinn",
+ "http",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "pin-project",
+ "tokio",
+ "tokio-stream",
+ "tonic",
+ "tower 0.4.13",
+ "tracing",
+]
+
+[[package]]
+name = "tonic-h3-test"
 version = "0.1.0"
 dependencies = [
  "h3-quinn",
  "http",
  "hyper",
- "hyper-h3",
+ "prost",
  "quinn",
  "rcgen",
  "rustls",
  "tokio",
  "tokio-util",
  "tonic",
- "tonic_shared",
+ "tonic-build",
+ "tonic-h3",
  "tracing",
  "tracing-subscriber",
-]
-
-[[package]]
-name = "tonic_shared"
-version = "0.1.0"
-dependencies = [
- "prost",
- "tonic",
- "tonic-build",
- "tracing",
 ]
 
 [[package]]

@@ -1,9 +1,8 @@
 [workspace]
 resolver = "2"
 members = [ 
-  "hyper-h3",
+  "tonic-h3",
   "tonic-h3-tests",
-  "tonic_shared"
 ]
 
 [workspace.dependencies]
@@ -29,8 +28,7 @@ pin-project-lite = "0.2"
 tracing = { version = "0.1", features = ["log"] }
 
 # crates in this workspace
-hyper-h3 = {path = "hyper-h3"}
-tonic_shared = {path = "tonic_shared"}
+tonic-h3 = {path = "tonic-h3"}
 
 [patch.crates-io]
 h3 = { git = "https://github.com/youyuanwu/h3.git", rev = "659d0fc1da7c132726d824331a54fe8489b40715"}
