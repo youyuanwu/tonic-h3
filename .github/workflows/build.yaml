@@ -18,6 +18,8 @@ jobs:
         toolchain: 1.79.0
         components: rustfmt, clippy
 
+    - uses: taiki-e/install-action@protoc
+
     - name: Run cargo check
       run: cargo check
 
