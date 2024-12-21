@@ -1,0 +1,36 @@
+[workspace]
+resolver = "2"
+members = [ 
+  "hyper-h3",
+  "tonic-h3-tests",
+  "tonic_shared"
+]
+
+[workspace.dependencies]
+rustls = { version = "0.23.7", default-features = false, features = ["std"] }
+hex = "0.4"
+tokio = { version = "1.0", features = ["full"] }
+
+hyper = { version = "1", features = ["client"] }
+hyper-util = "*"
+http-body-util = "*"
+tower = "*"
+tokio-util = "*"
+cfg-if = "1.0"
+trait-variant = "0.1"
+tokio-stream = { version = "0.1", features = ["net"] }
+futures = "*"
+tonic = "0.12"
+prost = "0.13"
+tonic-build = "0.12"
+prost-build = "0.13"
+http = "*"
+pin-project-lite = "0.2"
+tracing = { version = "0.1", features = ["log"] }
+
+# crates in this workspace
+hyper-h3 = {path = "hyper-h3"}
+tonic_shared = {path = "tonic_shared"}
+
+[patch.crates-io]
+h3 = { git = "https://github.com/youyuanwu/h3.git", rev = "659d0fc1da7c132726d824331a54fe8489b40715"}

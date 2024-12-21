@@ -1,0 +1,21 @@
+[package]
+name = "hyper-h3"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+h3 = "0.0.6"
+tracing = { version = "0.1", features = ["log"] }
+http = "*"
+hyper = "*"
+futures-util = "*"
+tonic.workspace = true
+http-body-util = "*"
+futures.workspace = true
+tower.workspace = true
+hyper-util.workspace = true
+tokio-stream.workspace = true
+h3-quinn = "*"
+tokio.workspace = true
+pin-project ="*"
+async-stream = "*"

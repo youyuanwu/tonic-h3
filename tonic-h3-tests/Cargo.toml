@@ -1,0 +1,21 @@
+[package]
+name = "tonic_h3_test"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+
+[dev-dependencies]
+tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt"]}
+tracing = "*"
+http = "*"
+hyper = "*"
+quinn = "*"
+rustls = "*"
+rcgen = "*"
+h3-quinn = "*"
+tokio-util.workspace = true
+tokio.workspace = true
+tonic.workspace = true
+hyper-h3.workspace = true
+tonic_shared.workspace = true
