@@ -82,6 +82,39 @@ where
     }
 }
 
+async fn send_h3_server_body<BD, S>(
+    w: &mut h3::server::RequestStream<<S as h3::quic::BidiStream<Bytes>>::SendStream, Bytes>,
+    bd: BD,
+) -> Result<(), crate::Error>
+where
+    BD: Body + 'static,
+    BD::Error: Into<crate::Error>,
+    <BD as Body>::Error: Into<crate::Error> + std::error::Error + Send + Sync,
+    <BD as Body>::Data: Send + Sync,
+    S: h3::quic::BidiStream<hyper::body::Bytes>,
+{
+    let mut p_b = std::pin::pin!(bd);
+    let mut sent_trailers = false;
+    while let Some(d) = futures::future::poll_fn(|cx| p_b.as_mut().poll_frame(cx)).await {
+        // send body
+        let d = d.map_err(crate::Error::from)?;
+        if d.is_data() {
+            let mut d = d.into_data().ok().unwrap();
+            tracing::debug!("serving request write data");
+            w.send_data(d.copy_to_bytes(d.remaining())).await?;
+        } else if d.is_trailers() {
+            let d = d.into_trailers().ok().unwrap();
+            tracing::debug!("serving request write trailer: {:?}", d);
+            w.send_trailers(d).await?;
+            sent_trailers = true;
+        }
+    }
+    if !sent_trailers {
+        w.finish().await?;
+    }
+    Ok(())
+}
+
 pub async fn serve_request<S, SVC, BD>(
     request: Request<()>,
     stream: RequestStream<S, Bytes>,
@@ -99,9 +132,6 @@ where
     <BD as Body>::Error: Into<crate::Error> + std::error::Error + Send + Sync,
     <BD as Body>::Data: Send + Sync,
     S: h3::quic::BidiStream<Bytes>,
-    // <SVC as hyper::service::Service<
-    //     http::Request<H3Incoming<S::RecvStream, hyper::body::Bytes>>,
-    // >>::Error: Sync + Send + std::error::Error + 'static,
 {
     tracing::debug!("serving request");
     let (parts, _) = request.into_parts();
@@ -118,21 +148,9 @@ where
     w.send_response(Response::from_parts(res_h, ())).await?;
 
     // write body or trailer.
-    let mut p_b = std::pin::pin!(res_b);
+    send_h3_server_body::<BD, S>(&mut w, res_b).await?;
 
-    while let Some(d) = futures::future::poll_fn(|cx| p_b.as_mut().poll_frame(cx)).await {
-        // send body
-        let d = d.map_err(crate::Error::from)?;
-        if d.is_data() {
-            let mut d = d.into_data().ok().unwrap();
-            tracing::debug!("serving request write data");
-            w.send_data(d.copy_to_bytes(d.remaining())).await?;
-        } else if d.is_trailers() {
-            let d = d.into_trailers().ok().unwrap();
-            tracing::debug!("serving request write trailer: {:?}", d);
-            w.send_trailers(d).await?;
-        }
-    }
+    w.finish().await?;
 
     tracing::debug!("serving request end");
     Ok(())

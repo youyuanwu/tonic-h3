@@ -1,6 +1,5 @@
 use h3::client::RequestStream;
 use http::Uri;
-use http_body_util::BodyExt;
 use hyper::body::{Buf, Bytes};
 
 pub struct H3IncomingClient<S, B>
@@ -72,6 +71,36 @@ where
     }
 }
 
+async fn send_h3_client_body<S>(
+    w: &mut h3::client::RequestStream<<S as h3::quic::BidiStream<Bytes>>::SendStream, Bytes>,
+    bd: tonic::body::BoxBody,
+) -> Result<(), crate::Error>
+where
+    S: h3::quic::BidiStream<hyper::body::Bytes>,
+{
+    use hyper::body::Body;
+    let mut p_b = std::pin::pin!(bd);
+    let mut sent_trailers = false;
+    while let Some(d) = futures::future::poll_fn(|cx| p_b.as_mut().poll_frame(cx)).await {
+        // send body
+        let d = d.map_err(crate::Error::from)?;
+        if d.is_data() {
+            let mut d = d.into_data().ok().unwrap();
+            tracing::debug!("client write data");
+            w.send_data(d.copy_to_bytes(d.remaining())).await?;
+        } else if d.is_trailers() {
+            let d = d.into_trailers().ok().unwrap();
+            tracing::debug!("client write trailer: {:?}", d);
+            w.send_trailers(d).await?;
+            sent_trailers = true;
+        }
+    }
+    if !sent_trailers {
+        w.finish().await?;
+    }
+    Ok(())
+}
+
 pub fn channel_h3(
     send_request: h3::client::SendRequest<h3_quinn::OpenStreams, Bytes>,
     uri: Uri,
@@ -84,7 +113,7 @@ pub fn channel_h3(
         let mut send_request = send_request.clone();
         let uri = uri.clone();
         async move {
-            let (parts, mut body) = req.into_parts();
+            let (parts, body) = req.into_parts();
             let mut head_req = hyper::Request::from_parts(parts, ());
             // send header
             tracing::debug!("sending h3 req header: {:?}", head_req);
@@ -104,38 +133,9 @@ pub fn channel_h3(
 
             let (mut w, mut r) = stream.split();
             // send body in backgound
-            let send_body = async move {
-                loop {
-                    match body.frame().await {
-                        Some(Ok(f)) => {
-                            if f.is_data() {
-                                tracing::debug!("sending body :{:?}", f);
-                                w.send_data(f.into_data().unwrap()).await.inspect_err(|e| {
-                                    tracing::debug!("w send_data error: {}", e);
-                                })?;
-                            } else if f.is_trailers() {
-                                tracing::debug!("sending trailer :{:?}", f);
-                                w.send_trailers(f.into_trailers().unwrap())
-                                    .await
-                                    .inspect_err(|e| {
-                                        tracing::debug!("w send_trailers error: {}", e);
-                                    })?;
-                            }
-                        }
-                        Some(Err(e)) => {
-                            tracing::debug!("frame error: {}", e);
-                            // This maybe needed for grpc streaming?
-                            panic!("client tries to send a status?")
-                        }
-                        None => break,
-                    }
-                }
-                w.finish().await.inspect_err(|e| {
-                    tracing::debug!("w finish error: {}", e);
-                })?;
-                Ok::<(), h3::Error>(())
-            };
-            tokio::spawn(send_body);
+            tokio::spawn(async move {
+                send_h3_client_body::<h3_quinn::BidiStream<Bytes>>(&mut w, body).await
+            });
 
             // return resp.
             tracing::debug!("recv header");
@@ -146,23 +146,3 @@ pub fn channel_h3(
         }
     })
 }
-
-// pub struct H3Channel{
-
-// }
-
-// impl tonic::client::GrpcService<tonic::body::BoxBody> for H3Channel{
-//     type ResponseBody;
-
-//     type Error = crate::Error;
-
-//     type Future = impl Future<Output = Result<http::Response<Self::ResponseBody>, Self::Error>>;
-
-//     fn poll_ready(&mut self, cx: &mut std::task::Context<'_>) -> std::task::Poll<Result<(), Self::Error>> {
-//         std::task::Poll::Ready(Ok(()))
-//     }
-
-//     fn call(&mut self, request: http::Request<tonic::body::BoxBody>) -> Self::Future {
-//         todo!()
-//     }
-// }
