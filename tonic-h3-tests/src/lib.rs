@@ -60,8 +60,6 @@ mod h3_tests {
 
         let (cert, key) = make_test_cert_rustls(vec!["localhost".to_string()]);
 
-        //TODO: client auth?? disable??
-
         let mut tls_config = rustls::ServerConfig::builder_with_provider(
             rustls::crypto::ring::default_provider().into(),
         )
@@ -121,39 +119,9 @@ mod h3_tests {
         client_endpoint.set_default_client_config(client_config);
 
         tracing::debug!("connecting quic client.");
-        let conn = client_endpoint
-            .connect(listen_addr, "localhost")
-            .unwrap()
-            .await
-            .unwrap();
-
-        tracing::debug!("QUIC connection established");
-
-        tracing::debug!("connecting h3 conn");
-        let (mut driver, send_request) = h3::client::new(h3_quinn::Connection::new(conn.clone()))
-            .await
-            .unwrap();
-
-        let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();
-
-        let drive_h = tokio::spawn(async move {
-            // run in background to maintain h3 connection until end.
-            tokio::select! {
-                // Drive the connection
-                closed = std::future::poll_fn(|cx| driver.poll_close(cx)) => closed?,
-                // Listen for shutdown condition
-                max_streams = shutdown_rx => {
-                    // Initiate shutdown
-                    driver.shutdown(max_streams?).await?;
-                    // Wait for ongoing work to complete
-                    std::future::poll_fn(|cx| driver.poll_close(cx)).await?;
-                }
-            };
-            Ok::<(), tonic_h3::Error>(())
-        });
 
         let uri = format!("https://{}", listen_addr).parse().unwrap();
-        let channel = tonic_h3::channel_h3(send_request, uri);
+        let channel = tonic_h3::H3Channel::new_quinn(uri, client_endpoint.clone());
 
         let mut client = crate::greeter_client::GreeterClient::new(channel);
 
@@ -174,11 +142,8 @@ mod h3_tests {
             tracing::debug!("RESPONSE={:?}", response);
         }
 
-        // wait client idle
-        tracing::debug!("shutdown conn and end drive");
-        shutdown_tx.send(2).unwrap();
-        drive_h.await.expect("task fail").unwrap();
-
+        // client drop is required to end connection. drive will end after connection end
+        std::mem::drop(client);
         tracing::debug!("client wait idle");
         client_endpoint.wait_idle().await;
 

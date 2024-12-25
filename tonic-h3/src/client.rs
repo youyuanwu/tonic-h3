@@ -1,148 +1,164 @@
-use h3::client::RequestStream;
-use http::Uri;
-use hyper::body::{Buf, Bytes};
+use std::net::SocketAddr;
 
-pub struct H3IncomingClient<S, B>
-where
-    B: Buf,
-    S: h3::quic::RecvStream,
-{
-    s: RequestStream<S, B>,
-    data_done: bool,
+use futures::future::BoxFuture;
+use http::{Request, Response, Uri};
+use hyper::body::Bytes;
+use tonic::body::BoxBody;
+
+use crate::{client_body::H3IncomingClient, connection::CacheSendRequestService};
+
+/// Grpc client channel, wrapping inner types for ease of use.
+pub struct H3Channel {
+    inner: tower::util::BoxService<
+        Request<BoxBody>,
+        Response<H3IncomingClient<h3_quinn::RecvStream, Bytes>>,
+        crate::Error,
+    >,
 }
 
-impl<S, B> H3IncomingClient<S, B>
-where
-    B: Buf,
-    S: h3::quic::RecvStream,
-{
-    fn new(s: RequestStream<S, B>) -> Self {
+impl H3Channel {
+    pub fn new<C>(connector: C, uri: Uri) -> Self
+    where
+        C: tower::Service<Uri, Response = h3_quinn::quinn::Connection, Error = crate::Error>
+            + Send
+            + 'static,
+        C::Future: Send,
+    {
+        let cache_mk_svc = CacheSendRequestService::new(connector, uri.clone());
+
+        let client_svc = ClientService {
+            inner: cache_mk_svc,
+            uri,
+        };
+
         Self {
-            s,
-            data_done: false,
+            inner: tower::util::BoxService::new(client_svc),
         }
+    }
+
+    pub fn new_quinn(uri: Uri, ep: h3_quinn::quinn::Endpoint) -> Self {
+        let connector = connector(uri.clone(), "localhost".to_string(), ep);
+        Self::new(connector, uri)
     }
 }
 
-impl<S, B> tonic::transport::Body for H3IncomingClient<S, B>
-where
-    B: Buf,
-    S: h3::quic::RecvStream,
-{
-    type Data = hyper::body::Bytes;
+impl tower::Service<Request<BoxBody>> for H3Channel {
+    type Response = Response<H3IncomingClient<h3_quinn::RecvStream, Bytes>>;
+    type Error = crate::Error;
+    type Future = BoxFuture<'static, Result<Self::Response, Self::Error>>;
 
-    type Error = h3::Error;
-
-    fn poll_frame(
-        mut self: std::pin::Pin<&mut Self>,
+    fn poll_ready(
+        &mut self,
         cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Option<Result<hyper::body::Frame<Self::Data>, Self::Error>>> {
-        if !self.data_done {
-            match futures_util::ready!(self.s.poll_recv_data(cx)) {
-                Ok(data_opt) => match data_opt {
-                    Some(mut data) => {
-                        let f = hyper::body::Frame::data(data.copy_to_bytes(data.remaining()));
-                        std::task::Poll::Ready(Some(Ok(f)))
-                    }
-                    None => {
-                        self.data_done = true;
-                        // try again for trailers
-                        cx.waker().wake_by_ref();
-                        std::task::Poll::Pending
-                    }
-                },
-                Err(e) => std::task::Poll::Ready(Some(Err(e))),
-            }
-        } else {
-            // TODO: need poll trailers api.
-            match futures_util::ready!(self.s.poll_recv_trailers(cx))? {
-                Some(tr) => std::task::Poll::Ready(Some(Ok(hyper::body::Frame::trailers(tr)))),
-                None => std::task::Poll::Ready(None),
-            }
-        }
+    ) -> std::task::Poll<Result<(), Self::Error>> {
+        tower::Service::poll_ready(&mut self.inner, cx)
     }
 
-    fn is_end_stream(&self) -> bool {
-        false
-    }
-
-    fn size_hint(&self) -> hyper::body::SizeHint {
-        hyper::body::SizeHint::default()
+    fn call(&mut self, req: Request<BoxBody>) -> Self::Future {
+        self.inner.call(req)
     }
 }
 
-async fn send_h3_client_body<S>(
-    w: &mut h3::client::RequestStream<<S as h3::quic::BidiStream<Bytes>>::SendStream, Bytes>,
-    bd: tonic::body::BoxBody,
-) -> Result<(), crate::Error>
+/// Client service that includes cache and reconnection.
+pub struct ClientService<C>
 where
-    S: h3::quic::BidiStream<hyper::body::Bytes>,
+    C: tower::Service<Uri, Response = h3_quinn::quinn::Connection, Error = crate::Error>
+        + Send
+        + 'static,
+    C::Future: Send,
 {
-    use hyper::body::Body;
-    let mut p_b = std::pin::pin!(bd);
-    let mut sent_trailers = false;
-    while let Some(d) = futures::future::poll_fn(|cx| p_b.as_mut().poll_frame(cx)).await {
-        // send body
-        let d = d.map_err(crate::Error::from)?;
-        if d.is_data() {
-            let mut d = d.into_data().ok().unwrap();
-            tracing::debug!("client write data");
-            w.send_data(d.copy_to_bytes(d.remaining())).await?;
-        } else if d.is_trailers() {
-            let d = d.into_trailers().ok().unwrap();
-            tracing::debug!("client write trailer: {:?}", d);
-            w.send_trailers(d).await?;
-            sent_trailers = true;
-        }
-    }
-    if !sent_trailers {
-        w.finish().await?;
-    }
-    Ok(())
+    inner: CacheSendRequestService<C>,
+    uri: Uri,
 }
 
-pub fn channel_h3(
-    send_request: h3::client::SendRequest<h3_quinn::OpenStreams, Bytes>,
+impl<C> tower::Service<Request<BoxBody>> for ClientService<C>
+where
+    C: tower::Service<Uri, Response = h3_quinn::quinn::Connection, Error = crate::Error>
+        + Send
+        + 'static,
+    C::Future: Send,
+{
+    type Response = Response<H3IncomingClient<h3_quinn::RecvStream, Bytes>>;
+
+    type Error = crate::Error;
+
+    type Future = BoxFuture<'static, Result<Self::Response, Self::Error>>;
+
+    fn poll_ready(
+        &mut self,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<(), Self::Error>> {
+        self.inner.poll_ready(cx)
+    }
+
+    fn call(&mut self, mut req: Request<BoxBody>) -> Self::Future {
+        let uri = &self.uri;
+        // fix up uri with full uri.
+        let uri2 = Uri::builder()
+            .scheme(uri.scheme().unwrap().clone())
+            .authority(uri.authority().unwrap().clone())
+            .path_and_query(req.uri().path_and_query().unwrap().clone())
+            .build()
+            .unwrap();
+        *req.uri_mut() = uri2;
+
+        let fut = self.inner.call(());
+        Box::pin(async move {
+            let mut send_request = fut.await?;
+            send_request.call(req).await
+        })
+    }
+}
+
+/// Make connections from endpoint.
+pub fn connector(
     uri: Uri,
-) -> impl tonic::client::GrpcService<
-    tonic::body::BoxBody,
+    server_name: String,
+    ep: h3_quinn::quinn::Endpoint,
+) -> impl tower::Service<
+    Uri,
+    Response = h3_quinn::quinn::Connection,
+    Future = impl Send + 'static,
     Error = crate::Error,
-    ResponseBody = H3IncomingClient<h3_quinn::RecvStream, Bytes>,
 > {
-    tower::service_fn(move |req: hyper::Request<tonic::body::BoxBody>| {
-        let mut send_request = send_request.clone();
+    tower::service_fn(move |_: Uri| {
+        let ep = ep.clone();
         let uri = uri.clone();
+        let server_name = server_name.clone();
         async move {
-            let (parts, body) = req.into_parts();
-            let mut head_req = hyper::Request::from_parts(parts, ());
-            // send header
-            tracing::debug!("sending h3 req header: {:?}", head_req);
+            // connect to dns resolved addr.
+            let mut conn_err = std::io::Error::from(std::io::ErrorKind::AddrNotAvailable).into();
+            let addrs = dns_resolve(&uri).await?;
 
-            // need to inject uri with full uri and authority
-            let uri2 = Uri::builder()
-                .scheme(uri.scheme().unwrap().clone())
-                .authority(uri.authority().unwrap().clone())
-                .path_and_query(head_req.uri().path_and_query().unwrap().clone())
-                .build()
-                .unwrap();
-
-            *head_req.uri_mut() = uri2;
-
-            // send header.
-            let stream = send_request.send_request(head_req).await?;
-
-            let (mut w, mut r) = stream.split();
-            // send body in backgound
-            tokio::spawn(async move {
-                send_h3_client_body::<h3_quinn::BidiStream<Bytes>>(&mut w, body).await
-            });
-
-            // return resp.
-            tracing::debug!("recv header");
-            let (resp, _) = r.recv_response().await?.into_parts();
-            let resp_body = H3IncomingClient::new(r);
-            tracing::debug!("return resp");
-            Ok(hyper::Response::from_parts(resp, resp_body))
+            for addr in addrs {
+                match ep
+                    .connect(addr, &server_name)
+                    .map_err(Into::<crate::Error>::into)
+                {
+                    Ok(conn) => return conn.await.map_err(Into::<crate::Error>::into),
+                    Err(e) => conn_err = e,
+                }
+            }
+            Err(conn_err)
         }
     })
+}
+
+/// Use the host:port portion of the uri and resolve to an sockaddr.
+/// If uri host portion is an ip string, then directly use the ip addr without
+/// dns lookup.
+async fn dns_resolve(uri: &Uri) -> std::io::Result<Vec<SocketAddr>> {
+    let host_port = uri
+        .authority()
+        .ok_or(std::io::Error::from(std::io::ErrorKind::InvalidInput))?
+        .as_str();
+    match host_port.parse::<SocketAddr>() {
+        Ok(addr) => Ok(vec![addr]),
+        Err(_) => {
+            // uri is using a dns name. try resolve it and return the first.
+            tokio::net::lookup_host(host_port)
+                .await
+                .map(|a| a.collect::<Vec<_>>())
+        }
+    }
 }
