@@ -20,9 +20,7 @@ impl crate::greeter_server::Greeter for HelloWorldService {
 #[cfg(test)]
 mod h3_tests {
     use std::{sync::Arc, time::Duration};
-
     use tokio_util::sync::CancellationToken;
-    use tonic_h3::incoming_conn;
 
     fn make_test_cert(subject_alt_names: Vec<String>) -> (rcgen::Certificate, rcgen::KeyPair) {
         use rcgen::{generate_simple_self_signed, CertifiedKey};
@@ -86,12 +84,15 @@ mod h3_tests {
         let svc = tonic::service::Routes::new(crate::greeter_server::GreeterServer::new(hello_svc));
         let token = CancellationToken::new();
 
-        let reqs = tonic_h3::incoming_req(incoming_conn(endpoint.clone()));
+        let reqs = tonic_h3::incoming_req(tonic_h3::quinn::incoming_conn_quinn(endpoint.clone()));
 
         // run server in background
         let token_cp = token.clone();
         let h_sv = tokio::spawn(async move {
-            tonic_h3::serve_tonic(svc, reqs, async move { token_cp.cancelled().await }).await
+            tonic_h3::serve_tonic::<h3_quinn::Connection, _, _>(svc, reqs, async move {
+                token_cp.cancelled().await
+            })
+            .await
         });
 
         // send client request
@@ -121,7 +122,7 @@ mod h3_tests {
         tracing::debug!("connecting quic client.");
 
         let uri = format!("https://{}", listen_addr).parse().unwrap();
-        let channel = tonic_h3::H3Channel::new_quinn(uri, client_endpoint.clone());
+        let channel = tonic_h3::quinn::new_quinn_h3_channel(uri, client_endpoint.clone());
 
         let mut client = crate::greeter_client::GreeterClient::new(channel);
 

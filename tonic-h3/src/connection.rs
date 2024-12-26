@@ -1,25 +1,34 @@
 use std::{pin::Pin, task::Poll};
 
 use futures::future::BoxFuture;
-use http::{Request, Response, Uri};
+use http::{Request, Response};
 use hyper::body::Bytes;
 use tonic::body::BoxBody;
 
-use crate::client_body::H3IncomingClient;
+use crate::{client::H3Connector, client_body::H3IncomingClient};
 
 /// Send request. Lowerest layer.
-// #[derive(Debug)]
-pub struct SendRequest {
-    inner: h3::client::SendRequest<h3_quinn::OpenStreams, Bytes>,
+#[derive(Clone)]
+pub struct SendRequest<CONN>
+where
+    CONN: H3Connector,
+{
+    inner: h3::client::SendRequest<CONN::OS, Bytes>,
 }
 
-pub struct SendRequestEntry {
-    inner: SendRequest,
+pub struct SendRequestEntry<CONN>
+where
+    CONN: H3Connector,
+{
+    inner: SendRequest<CONN>,
     h: tokio::task::JoinHandle<Result<(), crate::Error>>,
 }
 
-impl tower::Service<Request<BoxBody>> for SendRequest {
-    type Response = Response<H3IncomingClient<h3_quinn::RecvStream, Bytes>>;
+impl<CONN> tower::Service<Request<BoxBody>> for SendRequest<CONN>
+where
+    CONN: H3Connector,
+{
+    type Response = Response<H3IncomingClient<CONN::RS, Bytes>>;
 
     type Error = crate::Error;
 
@@ -34,14 +43,17 @@ impl tower::Service<Request<BoxBody>> for SendRequest {
 
     fn call(&mut self, req: Request<BoxBody>) -> Self::Future {
         let send_request = self.inner.clone();
-        Box::pin(async move { send_request_inner(req, send_request).await })
+        Box::pin(async move { send_request_inner::<CONN>(req, send_request).await })
     }
 }
 
-pub async fn send_request_inner(
+pub async fn send_request_inner<CONN>(
     req: hyper::Request<tonic::body::BoxBody>,
-    mut send_request: h3::client::SendRequest<h3_quinn::OpenStreams, Bytes>,
-) -> Result<Response<H3IncomingClient<h3_quinn::RecvStream, Bytes>>, crate::Error> {
+    mut send_request: h3::client::SendRequest<CONN::OS, Bytes>,
+) -> Result<Response<H3IncomingClient<CONN::RS, Bytes>>, crate::Error>
+where
+    CONN: H3Connector,
+{
     let (parts, body) = req.into_parts();
     let head_req = hyper::Request::from_parts(parts, ());
     // send header
@@ -52,9 +64,9 @@ pub async fn send_request_inner(
 
     let (mut w, mut r) = stream.split();
     // send body in backgound
-    tokio::spawn(async move {
-        crate::client_body::send_h3_client_body::<h3_quinn::BidiStream<Bytes>>(&mut w, body).await
-    });
+    tokio::spawn(
+        async move { crate::client_body::send_h3_client_body::<CONN::BS>(&mut w, body).await },
+    );
 
     // return resp.
     tracing::debug!("recv header");
@@ -64,36 +76,31 @@ pub async fn send_request_inner(
     Ok(hyper::Response::from_parts(resp, resp_body))
 }
 
-enum SendRequestCacheState<FC> {
+enum SendRequestCacheState<FC, CONN>
+where
+    CONN: H3Connector,
+{
     Idle,
     Making(Pin<Box<FC>>),
-    Ready(SendRequestEntry),
+    Ready(SendRequestEntry<CONN>),
 }
 
 /// Caches a send_request client, and replace it with new one if broke.
 /// h3 tonic client should reuse 1 quic connection for all requests.
 pub struct CacheSendRequestService<C>
 where
-    C: tower::Service<Uri, Response = h3_quinn::quinn::Connection, Error = crate::Error>
-        + Send
-        + 'static,
-    C::Future: Send,
+    C: H3Connector,
 {
     mk_svc: MakeSendRequestService<C>,
-    state: SendRequestCacheState<<MakeSendRequestService<C> as tower::Service<()>>::Future>,
+    state: SendRequestCacheState<<MakeSendRequestService<C> as tower::Service<()>>::Future, C>,
 }
 
 impl<C> CacheSendRequestService<C>
 where
-    C: tower::Service<Uri, Response = h3_quinn::quinn::Connection, Error = crate::Error>
-        + Send
-        + 'static,
-    C::Future: Send,
+    C: H3Connector,
 {
-    pub fn new(connector: C, uri: Uri) -> Self {
-        let mk_svc = MakeSendRequestService {
-            conn_svc: ReconnectService::new(connector, uri.clone()),
-        };
+    pub fn new(connector: C) -> Self {
+        let mk_svc = MakeSendRequestService { connector };
         Self {
             mk_svc,
             state: SendRequestCacheState::Idle,
@@ -103,12 +110,9 @@ where
 
 impl<C> tower::Service<()> for CacheSendRequestService<C>
 where
-    C: tower::Service<Uri, Response = h3_quinn::quinn::Connection, Error = crate::Error>
-        + Send
-        + 'static,
-    C::Future: Send,
+    C: H3Connector,
 {
-    type Response = SendRequest;
+    type Response = SendRequest<C>;
 
     type Error = crate::Error;
 
@@ -165,22 +169,17 @@ where
 /// Constructs send request, and keep the driver in the background task.
 pub struct MakeSendRequestService<C>
 where
-    C: tower::Service<Uri, Response = h3_quinn::quinn::Connection, Error = crate::Error>
-        + Send
-        + 'static,
-    C::Future: Send,
+    C: H3Connector,
 {
-    pub(crate) conn_svc: ReconnectService<C>,
+    connector: C,
 }
 
+// TODO: rewrite this using trait?
 impl<C> tower::Service<()> for MakeSendRequestService<C>
 where
-    C: tower::Service<Uri, Response = h3_quinn::quinn::Connection, Error = crate::Error>
-        + Send
-        + 'static,
-    C::Future: Send,
+    C: H3Connector,
 {
-    type Response = SendRequestEntry;
+    type Response = SendRequestEntry<C>;
 
     type Error = crate::Error;
 
@@ -188,19 +187,18 @@ where
 
     fn poll_ready(
         &mut self,
-        cx: &mut std::task::Context<'_>,
+        _cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Result<(), Self::Error>> {
-        self.conn_svc.poll_ready(cx).map_err(Into::into)
+        std::task::Poll::Ready(Ok(()))
     }
 
     fn call(&mut self, _: ()) -> Self::Future {
-        let fut = self.conn_svc.call(());
+        let connector = self.connector.clone();
         Box::pin(async move {
-            let conn = fut.await.map_err(crate::Error::from)?;
+            let conn = connector.connect().await.map_err(crate::Error::from)?;
 
             tracing::debug!("making new send_request");
-            let (mut driver, send_request) =
-                h3::client::new(h3_quinn::Connection::new(conn.clone())).await?;
+            let (mut driver, send_request) = h3::client::new(conn).await?;
             let h = tokio::spawn(async move {
                 // run in background to maintain h3 connection until end.
                 // Drive the connection
@@ -218,101 +216,5 @@ where
                 h,
             })
         })
-    }
-}
-
-enum State<FC> {
-    Idle,
-    Connecting(Pin<Box<FC>>), // future of making connection.
-    ConnectionReady(h3_quinn::quinn::Connection),
-}
-
-/// Keep and cache a good connection and reconnect.
-pub struct ReconnectService<C>
-where
-    C: tower::Service<Uri, Response = h3_quinn::quinn::Connection, Error = crate::Error>
-        + Send
-        + 'static,
-    C::Future: Send,
-{
-    connector: C,
-    state: State<C::Future>,
-    uri: Uri,
-}
-
-impl<C> ReconnectService<C>
-where
-    C: tower::Service<Uri, Response = h3_quinn::quinn::Connection, Error = crate::Error>
-        + Send
-        + 'static,
-    C::Future: Send,
-{
-    pub fn new(connector: C, uri: Uri) -> Self {
-        Self {
-            connector,
-            state: State::Idle,
-            uri,
-        }
-    }
-}
-
-impl<C> tower::Service<()> for ReconnectService<C>
-where
-    C: tower::Service<Uri, Response = h3_quinn::quinn::Connection, Error = crate::Error>
-        + Send
-        + 'static,
-    C::Future: Send,
-{
-    type Response = h3_quinn::quinn::Connection;
-
-    type Error = crate::Error;
-
-    type Future = BoxFuture<'static, Result<Self::Response, Self::Error>>;
-
-    fn poll_ready(
-        &mut self,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Result<(), Self::Error>> {
-        loop {
-            match self.state {
-                State::Idle => {
-                    futures::ready!(self.connector.poll_ready(cx))?;
-                    let fc = self.connector.call(self.uri.clone());
-                    self.state = State::Connecting(Box::pin(fc))
-                }
-                State::Connecting(ref mut fc) => {
-                    use futures_util::Future;
-                    let pfc = std::pin::Pin::new(fc);
-                    match futures::ready!(pfc.poll(cx)) {
-                        Ok(c) => {
-                            self.state = State::ConnectionReady(c);
-                            tracing::debug!("client connection established.");
-                            return Poll::Ready(Ok(()));
-                        }
-                        Err(e) => {
-                            self.state = State::Idle;
-                            return Poll::Ready(Err(e));
-                        }
-                    }
-                }
-                State::ConnectionReady(ref mut connection) => {
-                    if let Some(e) = connection.close_reason() {
-                        tracing::debug!("client connection broken. Needs reconnect. {}", e);
-                        self.state = State::Idle
-                    } else {
-                        tracing::debug!("client connection cache hit.");
-                        return Poll::Ready(Ok(()));
-                    }
-                }
-            }
-        }
-    }
-
-    fn call(&mut self, _: ()) -> Self::Future {
-        let State::ConnectionReady(conn) = &mut self.state else {
-            panic!("service not ready; poll_ready must be called first");
-        };
-        let conn = conn.clone();
-        Box::pin(async move { Ok(conn) })
     }
 }
