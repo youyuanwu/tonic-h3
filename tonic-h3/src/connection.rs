@@ -122,6 +122,7 @@ where
         loop {
             match self.state {
                 SendRequestCacheState::Idle => {
+                    tracing::debug!("send_request idle.");
                     futures::ready!(self.mk_svc.poll_ready(cx))?;
                     let fc = self.mk_svc.call(());
                     self.state = SendRequestCacheState::Making(Box::pin(fc))
@@ -195,7 +196,11 @@ where
     fn call(&mut self, _: ()) -> Self::Future {
         let connector = self.connector.clone();
         Box::pin(async move {
-            let conn = connector.connect().await.map_err(crate::Error::from)?;
+            let conn = connector
+                .connect()
+                .await
+                .map_err(crate::Error::from)
+                .inspect_err(|e| tracing::debug!("connector error: {e}"))?;
 
             tracing::debug!("making new send_request");
             let (mut driver, send_request) = h3::client::new(conn).await?;

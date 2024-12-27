@@ -31,7 +31,7 @@ impl H3Connector for H3QuinnConnector {
         // connect to dns resolved addr.
         let mut conn_err = std::io::Error::from(std::io::ErrorKind::AddrNotAvailable).into();
         let addrs = crate::client::dns_resolve(&self.uri).await?;
-
+        tracing::debug!("connecting to server: {:?}", addrs);
         for addr in addrs {
             match self
                 .ep

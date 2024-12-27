@@ -16,6 +16,7 @@ tonic-h3.workspace = true
 tokio-util.workspace = true
 tokio.workspace = true
 h3-quinn = "*"
+serial_test = "3"
 
 [dev-dependencies]
 http = "*"

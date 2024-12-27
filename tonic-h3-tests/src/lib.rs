@@ -101,9 +101,94 @@ pub fn run_test_server(
     (h_sv, listen_addr)
 }
 
+// copied from https://github.com/rustls/rustls/blob/f98484bdbd57a57bafdd459db594e21c531f1b4a/examples/src/bin/tlsclient-mio.rs#L331
+mod danger {
+    use rustls::client::danger::HandshakeSignatureValid;
+    use rustls::crypto::{verify_tls12_signature, verify_tls13_signature, CryptoProvider};
+    use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
+    use rustls::DigitallySignedStruct;
+
+    #[derive(Debug)]
+    pub struct NoCertificateVerification(CryptoProvider);
+
+    impl NoCertificateVerification {
+        pub fn new(provider: CryptoProvider) -> Self {
+            Self(provider)
+        }
+    }
+
+    impl rustls::client::danger::ServerCertVerifier for NoCertificateVerification {
+        fn verify_server_cert(
+            &self,
+            _end_entity: &CertificateDer<'_>,
+            _intermediates: &[CertificateDer<'_>],
+            _server_name: &ServerName<'_>,
+            _ocsp: &[u8],
+            _now: UnixTime,
+        ) -> Result<rustls::client::danger::ServerCertVerified, rustls::Error> {
+            Ok(rustls::client::danger::ServerCertVerified::assertion())
+        }
+
+        fn verify_tls12_signature(
+            &self,
+            message: &[u8],
+            cert: &CertificateDer<'_>,
+            dss: &DigitallySignedStruct,
+        ) -> Result<HandshakeSignatureValid, rustls::Error> {
+            verify_tls12_signature(
+                message,
+                cert,
+                dss,
+                &self.0.signature_verification_algorithms,
+            )
+        }
+
+        fn verify_tls13_signature(
+            &self,
+            message: &[u8],
+            cert: &CertificateDer<'_>,
+            dss: &DigitallySignedStruct,
+        ) -> Result<HandshakeSignatureValid, rustls::Error> {
+            verify_tls13_signature(
+                message,
+                cert,
+                dss,
+                &self.0.signature_verification_algorithms,
+            )
+        }
+
+        fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
+            self.0.signature_verification_algorithms.supported_schemes()
+        }
+    }
+}
+
+pub fn make_test_client_endpoint() -> h3_quinn::quinn::Endpoint {
+    let mut tls_config = rustls::ClientConfig::builder_with_provider(
+        rustls::crypto::ring::default_provider().into(),
+    )
+    .with_safe_default_protocol_versions()
+    .unwrap()
+    .dangerous() // Do not verify server certs
+    .with_custom_certificate_verifier(Arc::new(crate::danger::NoCertificateVerification::new(
+        rustls::crypto::ring::default_provider(),
+    )))
+    .with_no_client_auth();
+
+    tls_config.enable_early_data = true;
+    tls_config.alpn_protocols = vec![b"h3".to_vec()];
+
+    let mut client_endpoint = h3_quinn::quinn::Endpoint::client("[::]:0".parse().unwrap()).unwrap();
+    let client_config = quinn::ClientConfig::new(Arc::new(
+        quinn::crypto::rustls::QuicClientConfig::try_from(tls_config).unwrap(),
+    ));
+    client_endpoint.set_default_client_config(client_config);
+    client_endpoint
+}
+
 #[cfg(test)]
 mod h3_tests {
-    use std::{sync::Arc, time::Duration};
+    use std::time::Duration;
     use tokio_util::sync::CancellationToken;
 
     #[tokio::test]
@@ -121,26 +206,7 @@ mod h3_tests {
         // send client request
         tokio::time::sleep(Duration::from_secs(1)).await;
 
-        let mut root_store = rustls::RootCertStore::empty();
-        root_store.add(cert).unwrap();
-        let mut tls_config = rustls::ClientConfig::builder_with_provider(
-            rustls::crypto::ring::default_provider().into(),
-        )
-        .with_safe_default_protocol_versions()
-        .unwrap()
-        .with_root_certificates(root_store)
-        .with_no_client_auth();
-
-        tls_config.enable_early_data = true;
-        tls_config.alpn_protocols = vec![b"h3".to_vec()];
-
-        let mut client_endpoint =
-            h3_quinn::quinn::Endpoint::client("[::]:0".parse().unwrap()).unwrap();
-
-        let client_config = quinn::ClientConfig::new(Arc::new(
-            quinn::crypto::rustls::QuicClientConfig::try_from(tls_config).unwrap(),
-        ));
-        client_endpoint.set_default_client_config(client_config);
+        let client_endpoint = crate::make_test_client_endpoint();
 
         tracing::debug!("connecting quic client.");
 
