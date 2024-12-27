@@ -106,7 +106,7 @@ where
 /// Use the host:port portion of the uri and resolve to an sockaddr.
 /// If uri host portion is an ip string, then directly use the ip addr without
 /// dns lookup.
-pub(crate) async fn dns_resolve(uri: &Uri) -> std::io::Result<Vec<SocketAddr>> {
+pub async fn dns_resolve(uri: &Uri) -> std::io::Result<Vec<SocketAddr>> {
     let host_port = uri
         .authority()
         .ok_or(std::io::Error::from(std::io::ErrorKind::InvalidInput))?

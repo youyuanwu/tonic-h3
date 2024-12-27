@@ -9,7 +9,7 @@ use hyper::{
 
 mod client;
 pub mod quinn;
-pub use client::H3Channel;
+pub use client::{dns_resolve, H3Channel, H3Connector};
 use server_body::H3IncomingServer;
 
 pub mod client_body;

@@ -163,7 +163,7 @@ mod danger {
     }
 }
 
-pub fn make_test_client_endpoint() -> h3_quinn::quinn::Endpoint {
+pub fn make_danger_rustls_client_config() -> rustls::ClientConfig {
     let mut tls_config = rustls::ClientConfig::builder_with_provider(
         rustls::crypto::ring::default_provider().into(),
     )
@@ -177,7 +177,11 @@ pub fn make_test_client_endpoint() -> h3_quinn::quinn::Endpoint {
 
     tls_config.enable_early_data = true;
     tls_config.alpn_protocols = vec![b"h3".to_vec()];
+    tls_config
+}
 
+pub fn make_test_quinn_client_endpoint() -> h3_quinn::quinn::Endpoint {
+    let tls_config = make_danger_rustls_client_config();
     let mut client_endpoint = h3_quinn::quinn::Endpoint::client("[::]:0".parse().unwrap()).unwrap();
     let client_config = quinn::ClientConfig::new(Arc::new(
         quinn::crypto::rustls::QuicClientConfig::try_from(tls_config).unwrap(),
@@ -186,10 +190,23 @@ pub fn make_test_client_endpoint() -> h3_quinn::quinn::Endpoint {
     client_endpoint
 }
 
+pub fn make_test_s2n_client_endpoint() -> s2n_quic::Client {
+    let tls_config = make_danger_rustls_client_config();
+    let tls = s2n_quic::provider::tls::rustls::Client::from(tls_config);
+    s2n_quic::Client::builder()
+        .with_tls(tls)
+        .unwrap()
+        .with_io("0.0.0.0:0")
+        .unwrap()
+        .start()
+        .unwrap()
+}
+
 #[cfg(test)]
 mod h3_tests {
     use std::time::Duration;
     use tokio_util::sync::CancellationToken;
+    use tonic::transport::Uri;
 
     #[tokio::test]
     async fn h3_test() {
@@ -206,39 +223,55 @@ mod h3_tests {
         // send client request
         tokio::time::sleep(Duration::from_secs(1)).await;
 
-        let client_endpoint = crate::make_test_client_endpoint();
-
         tracing::debug!("connecting quic client.");
 
-        let uri = format!("https://{}", listen_addr).parse().unwrap();
-        let channel = tonic_h3::quinn::new_quinn_h3_channel(uri, client_endpoint.clone());
+        let uri: Uri = format!("https://{}", listen_addr).parse().unwrap();
 
-        let mut client = crate::greeter_client::GreeterClient::new(channel);
-
+        let client_endpoint = crate::make_test_quinn_client_endpoint();
+        // quinn client test
         {
-            let request = tonic::Request::new(crate::HelloRequest {
-                name: "Tonic".into(),
-            });
-            let response = client.say_hello(request).await.unwrap();
+            // client drop is required to end connection. drive will end after connection end
+            let channel =
+                tonic_h3::quinn::new_quinn_h3_channel(uri.clone(), client_endpoint.clone());
+            let mut client = crate::greeter_client::GreeterClient::new(channel);
 
-            tracing::debug!("RESPONSE={:?}", response);
+            {
+                let request = tonic::Request::new(crate::HelloRequest {
+                    name: "Tonic".into(),
+                });
+                let response = client.say_hello(request).await.unwrap();
+
+                tracing::debug!("RESPONSE={:?}", response);
+            }
+            {
+                let request = tonic::Request::new(crate::HelloRequest {
+                    name: "Tonic2".into(),
+                });
+                let response = client.say_hello(request).await.unwrap();
+
+                tracing::debug!("RESPONSE={:?}", response);
+            }
         }
-        {
-            let request = tonic::Request::new(crate::HelloRequest {
-                name: "Tonic2".into(),
-            });
-            let response = client.say_hello(request).await.unwrap();
-
-            tracing::debug!("RESPONSE={:?}", response);
-        }
-
-        // client drop is required to end connection. drive will end after connection end
-        std::mem::drop(client);
         tracing::debug!("client wait idle");
         client_endpoint.wait_idle().await;
 
+        // test s2n client
+        let mut s2n_ep = crate::make_test_s2n_client_endpoint();
+        {
+            let channel = tonic_s2n::client::new_s2n_h3_channel(uri, s2n_ep.clone());
+            let mut client = crate::greeter_client::GreeterClient::new(channel);
+            {
+                let request = tonic::Request::new(crate::HelloRequest {
+                    name: "Tonic-S2n".into(),
+                });
+                let response = client.say_hello(request).await.unwrap();
+
+                tracing::debug!("RESPONSE={:?}", response);
+            }
+        }
+        s2n_ep.wait_idle().await.unwrap();
+
         token.cancel();
         h_svr.await.unwrap().unwrap();
-        //endpoint.wait_idle().await;
     }
 }
