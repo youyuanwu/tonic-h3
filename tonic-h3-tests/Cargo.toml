@@ -8,18 +8,18 @@ publish = false
 prost.workspace = true
 tonic.workspace = true
 tracing = "*"
-
-[dev-dependencies]
-tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt"]}
-http = "*"
-hyper = "*"
-quinn = "*"
 rustls = "*"
 rcgen = "*"
-h3-quinn = "*"
+quinn = "*"
+tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt"]}
+tonic-h3.workspace = true
 tokio-util.workspace = true
 tokio.workspace = true
-tonic-h3.workspace = true
+h3-quinn = "*"
+
+[dev-dependencies]
+http = "*"
+hyper = "*"
 h3.workspace = true
 
 [build-dependencies]

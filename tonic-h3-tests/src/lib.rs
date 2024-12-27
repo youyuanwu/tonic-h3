@@ -1,3 +1,12 @@
+use std::{net::SocketAddr, sync::Arc};
+
+use rustls::pki_types::{CertificateDer, PrivateKeyDer};
+use tokio_util::sync::CancellationToken;
+
+#[cfg(test)]
+#[cfg(target_os = "windows")]
+mod dotnet;
+
 tonic::include_proto!("helloworld"); // The string specified here must match the proto package name
 
 #[derive(Default)]
@@ -17,83 +26,97 @@ impl crate::greeter_server::Greeter for HelloWorldService {
     }
 }
 
+fn make_test_cert(subject_alt_names: Vec<String>) -> (rcgen::Certificate, rcgen::KeyPair) {
+    use rcgen::{generate_simple_self_signed, CertifiedKey};
+    let CertifiedKey { cert, key_pair } = generate_simple_self_signed(subject_alt_names).unwrap();
+    (cert, key_pair)
+}
+
+pub fn make_test_cert_rustls(
+    subject_alt_names: Vec<String>,
+) -> (
+    rustls::pki_types::CertificateDer<'static>,
+    rustls::pki_types::PrivateKeyDer<'static>,
+) {
+    let (cert, key_pair) = make_test_cert(subject_alt_names);
+    let cert = rustls::pki_types::CertificateDer::from(cert);
+    use rustls::pki_types::pem::PemObject;
+    let key = rustls::pki_types::PrivateKeyDer::from_pem(
+        rustls::pki_types::pem::SectionKind::PrivateKey,
+        key_pair.serialize_der(),
+    )
+    .unwrap();
+    (cert, key)
+}
+
+pub fn try_setup_tracing() {
+    let _ = tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::DEBUG)
+        .try_init();
+}
+
+// returns handle and listening addr
+pub fn run_test_server(
+    in_addr: SocketAddr,
+    token: CancellationToken,
+    cert: &CertificateDer<'static>,
+    key: &PrivateKeyDer<'static>,
+) -> (
+    tokio::task::JoinHandle<Result<(), tonic_h3::Error>>,
+    SocketAddr,
+) {
+    let mut tls_config = rustls::ServerConfig::builder_with_provider(
+        rustls::crypto::ring::default_provider().into(),
+    )
+    .with_safe_default_protocol_versions()
+    .unwrap()
+    .with_no_client_auth()
+    .with_single_cert(vec![cert.clone()], key.clone_key())
+    .unwrap();
+    tls_config.alpn_protocols = vec![b"h3".to_vec()];
+    tls_config.max_early_data_size = u32::MAX;
+    let tls_config = Arc::new(tls_config);
+
+    let server_config = quinn::ServerConfig::with_crypto(Arc::new(
+        quinn::crypto::rustls::QuicServerConfig::try_from(tls_config).unwrap(),
+    ));
+    let endpoint = quinn::Endpoint::server(server_config, in_addr).unwrap();
+
+    let listen_addr = endpoint.local_addr().unwrap();
+    tracing::debug!("listenaddr : {}", listen_addr);
+
+    let hello_svc = crate::HelloWorldService {};
+    let svc = tonic::service::Routes::new(crate::greeter_server::GreeterServer::new(hello_svc));
+    let reqs = tonic_h3::incoming_req(tonic_h3::quinn::incoming_conn_quinn(endpoint.clone()));
+
+    // run server in background
+    let h_sv = tokio::spawn(async move {
+        let res = tonic_h3::serve_tonic::<h3_quinn::Connection, _, _>(svc, reqs, async move {
+            token.cancelled().await
+        })
+        .await;
+        endpoint.wait_idle().await;
+        res
+    });
+    (h_sv, listen_addr)
+}
+
 #[cfg(test)]
 mod h3_tests {
     use std::{sync::Arc, time::Duration};
     use tokio_util::sync::CancellationToken;
 
-    fn make_test_cert(subject_alt_names: Vec<String>) -> (rcgen::Certificate, rcgen::KeyPair) {
-        use rcgen::{generate_simple_self_signed, CertifiedKey};
-        let CertifiedKey { cert, key_pair } =
-            generate_simple_self_signed(subject_alt_names).unwrap();
-        (cert, key_pair)
-    }
-
-    fn make_test_cert_rustls(
-        subject_alt_names: Vec<String>,
-    ) -> (
-        rustls::pki_types::CertificateDer<'static>,
-        rustls::pki_types::PrivateKeyDer<'static>,
-    ) {
-        let (cert, key_pair) = make_test_cert(subject_alt_names);
-        let cert = rustls::pki_types::CertificateDer::from(cert);
-        use rustls::pki_types::pem::PemObject;
-        let key = rustls::pki_types::PrivateKeyDer::from_pem(
-            rustls::pki_types::pem::SectionKind::PrivateKey,
-            key_pair.serialize_der(),
-        )
-        .unwrap();
-        (cert, key)
-    }
-
-    pub fn try_setup_tracing() {
-        let _ = tracing_subscriber::fmt()
-            .with_max_level(tracing::Level::DEBUG)
-            .try_init();
-    }
-
     #[tokio::test]
     async fn h3_test() {
-        try_setup_tracing();
+        crate::try_setup_tracing();
 
-        let (cert, key) = make_test_cert_rustls(vec!["localhost".to_string()]);
-
-        let mut tls_config = rustls::ServerConfig::builder_with_provider(
-            rustls::crypto::ring::default_provider().into(),
-        )
-        .with_safe_default_protocol_versions()
-        .unwrap()
-        .with_no_client_auth()
-        .with_single_cert(vec![cert.clone()], key.clone_key())
-        .unwrap();
-        tls_config.alpn_protocols = vec![b"h3".to_vec()];
-        tls_config.max_early_data_size = u32::MAX;
-        let tls_config = Arc::new(tls_config);
+        let (cert, key) = crate::make_test_cert_rustls(vec!["localhost".to_string()]);
 
         let addr: std::net::SocketAddr = "127.0.0.1:0".parse().unwrap();
 
-        let server_config = quinn::ServerConfig::with_crypto(Arc::new(
-            quinn::crypto::rustls::QuicServerConfig::try_from(tls_config).unwrap(),
-        ));
-        let endpoint = quinn::Endpoint::server(server_config, addr).unwrap();
-
-        let listen_addr = endpoint.local_addr().unwrap();
-        tracing::debug!("listenaddr : {}", listen_addr);
-
-        let hello_svc = crate::HelloWorldService {};
-        let svc = tonic::service::Routes::new(crate::greeter_server::GreeterServer::new(hello_svc));
         let token = CancellationToken::new();
-
-        let reqs = tonic_h3::incoming_req(tonic_h3::quinn::incoming_conn_quinn(endpoint.clone()));
-
-        // run server in background
-        let token_cp = token.clone();
-        let h_sv = tokio::spawn(async move {
-            tonic_h3::serve_tonic::<h3_quinn::Connection, _, _>(svc, reqs, async move {
-                token_cp.cancelled().await
-            })
-            .await
-        });
+        let (h_svr, listen_addr) = crate::run_test_server(addr, token.clone(), &cert, &key);
+        tracing::debug!("listenaddr : {}", listen_addr);
 
         // send client request
         tokio::time::sleep(Duration::from_secs(1)).await;
@@ -149,7 +172,7 @@ mod h3_tests {
         client_endpoint.wait_idle().await;
 
         token.cancel();
-        h_sv.await.unwrap().unwrap();
-        endpoint.wait_idle().await;
+        h_svr.await.unwrap().unwrap();
+        //endpoint.wait_idle().await;
     }
 }

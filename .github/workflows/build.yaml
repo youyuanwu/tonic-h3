@@ -27,7 +27,17 @@ jobs:
       run: cargo fmt --all -- --check
     
     - name: Run cargo clippy
-      run: cargo clippy -- -D warnings
+      run: cargo clippy --all-targets -- -D warnings
+
+    - uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.x'
+    
+    - name: dotnet build
+      run: dotnet build
+
+    - name: cargo build all (needed for example tests)
+      run: cargo build --all-targets
 
     - name: run all rust unittests
       run: cargo test --all
