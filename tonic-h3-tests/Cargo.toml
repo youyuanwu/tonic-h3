@@ -5,23 +5,18 @@ edition = "2021"
 publish = false
 
 [dependencies]
+h3-quinn.workspace = true
 prost.workspace = true
-tonic.workspace = true
-tracing = "*"
-rustls = "*"
-rcgen = "*"
-quinn = "*"
-tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt"]}
-tonic-h3.workspace = true
+quinn.workspace = true
+rcgen.workspace = true
+rustls.workspace = true
+serial_test.workspace = true
 tokio-util.workspace = true
 tokio.workspace = true
-h3-quinn = "*"
-serial_test = "3"
-
-[dev-dependencies]
-http = "*"
-hyper = "*"
-h3.workspace = true
+tonic-h3.workspace = true
+tonic.workspace = true
+tracing-subscriber.workspace = true
+tracing.workspace = true
 
 [build-dependencies]
 tonic-build.workspace = true
