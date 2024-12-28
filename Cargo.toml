@@ -1,19 +1,14 @@
 [workspace]
 resolver = "2"
-members = [ "tonic-s2n","tonic-h3", "tonic-h3-tests"]
+members = [ "tonic-h3-s2n","tonic-h3", "tonic-h3-tests"]
 
 [workspace.dependencies]
-async-stream = "0.3"
-cfg-if = "1"
 futures = "0.3"
-futures-util = "0.3"
 h3 = "0.0.6"
 h3-quinn = "0.0.7"
 http = "1"
-http-body-util = "0.1"
 hyper = { version = "1" }
 hyper-util = "0.1"
-pin-project = "1"
 prost = "0.13"
 prost-build = "0.13"
 quinn = "0.11"
@@ -21,7 +16,6 @@ rcgen = "0.13"
 rustls = { version = "0.23", default-features = false, features = ["std"] }
 serial_test = "3"
 tokio = { version = "1", features = ["full"] }
-tokio-stream = { version = "0.1", features = ["net"] }
 tokio-util = "0.7"
 tonic = "0.12"
 tonic-build = "0.12"
@@ -36,7 +30,7 @@ s2n-quic-h3 = { git = "https://github.com/SergioBenitez/s2n-quic-h3.git", rev = 
 
 # crates in this workspace
 tonic-h3 = { path = "tonic-h3" }
-tonic-s2n = { path = "tonic-s2n"}
+tonic-h3-s2n = { path = "tonic-h3-s2n"}
 
 [patch.crates-io]
 h3 = { git = "https://github.com/youyuanwu/h3.git", rev = "659d0fc1da7c132726d824331a54fe8489b40715" }

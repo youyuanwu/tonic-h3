@@ -1995,20 +1995,27 @@ dependencies = [
 name = "tonic-h3"
 version = "0.1.0"
 dependencies = [
- "async-stream",
  "futures",
- "futures-util",
  "h3",
  "h3-quinn",
  "http",
- "http-body-util",
  "hyper",
  "hyper-util",
- "pin-project",
  "tokio",
- "tokio-stream",
  "tonic",
  "tower 0.5.2",
+ "tracing",
+]
+
+[[package]]
+name = "tonic-h3-s2n"
+version = "0.1.0"
+dependencies = [
+ "http",
+ "hyper",
+ "s2n-quic",
+ "s2n-quic-h3",
+ "tonic-h3",
  "tracing",
 ]
 
@@ -2028,21 +2035,9 @@ dependencies = [
  "tonic",
  "tonic-build",
  "tonic-h3",
- "tonic-s2n",
+ "tonic-h3-s2n",
  "tracing",
  "tracing-subscriber",
-]
-
-[[package]]
-name = "tonic-s2n"
-version = "0.1.0"
-dependencies = [
- "http",
- "hyper",
- "s2n-quic",
- "s2n-quic-h3",
- "tonic-h3",
- "tracing",
 ]
 
 [[package]]

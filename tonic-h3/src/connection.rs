@@ -128,7 +128,7 @@ where
                     self.state = SendRequestCacheState::Making(Box::pin(fc))
                 }
                 SendRequestCacheState::Making(ref mut fc) => {
-                    use futures_util::Future;
+                    use futures::Future;
                     let pfc = std::pin::Pin::new(fc);
                     match futures::ready!(pfc.poll(cx)) {
                         Ok(c) => {

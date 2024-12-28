@@ -79,7 +79,8 @@ pub fn run_test_quinn_server(
     // run server in background
     let h_sv = tokio::spawn(async move {
         let res =
-            tonic_h3::serve_tonic2(svc, acceptor, async move { token.cancelled().await }).await;
+            tonic_h3::server::serve_tonic(svc, acceptor, async move { token.cancelled().await })
+                .await;
         endpoint.wait_idle().await;
         res
     });
@@ -107,11 +108,11 @@ pub fn run_test_s2n_server(
 
     let hello_svc = crate::HelloWorldService {};
     let svc = tonic::service::Routes::new(crate::greeter_server::GreeterServer::new(hello_svc));
-    let acceptor = tonic_s2n::server::H3S2nAcceptor::new(server);
+    let acceptor = tonic_h3_s2n::server::H3S2nAcceptor::new(server);
 
     // run server in background
     let h_sv = tokio::spawn(async move {
-        tonic_h3::serve_tonic2(svc, acceptor, async move { token.cancelled().await }).await
+        tonic_h3::server::serve_tonic(svc, acceptor, async move { token.cancelled().await }).await
     });
     (h_sv, listen_addr)
 }
@@ -304,7 +305,7 @@ mod h3_tests {
         // test s2n client
         let mut s2n_ep = crate::make_test_s2n_client_endpoint();
         {
-            let channel = tonic_s2n::client::new_s2n_h3_channel(uri, s2n_ep.clone());
+            let channel = tonic_h3_s2n::client::new_s2n_h3_channel(uri, s2n_ep.clone());
             let mut client = crate::greeter_client::GreeterClient::new(channel);
             {
                 let request = tonic::Request::new(crate::HelloRequest {

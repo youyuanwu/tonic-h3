@@ -1,5 +1,5 @@
 [package]
-name = "tonic-s2n"
+name = "tonic-h3-s2n"
 version = "0.1.0"
 edition = "2021"
 

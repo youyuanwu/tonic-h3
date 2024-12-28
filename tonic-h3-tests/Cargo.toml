@@ -11,14 +11,14 @@ quinn.workspace = true
 rcgen.workspace = true
 rustls.workspace = true
 serial_test.workspace = true
-tokio-util.workspace = true
 tokio.workspace = true
+tokio-util.workspace = true
 tonic-h3.workspace = true
 tonic.workspace = true
 tracing-subscriber.workspace = true
 tracing.workspace = true
 s2n-quic.workspace = true
-tonic-s2n.workspace = true
+tonic-h3-s2n.workspace = true
 
 [build-dependencies]
 tonic-build.workspace = true

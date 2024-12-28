@@ -38,7 +38,7 @@ where
     ) -> std::task::Poll<Option<Result<hyper::body::Frame<Self::Data>, Self::Error>>> {
         if !self.data_done {
             tracing::debug!("server incomming poll_frame recv_data");
-            match futures_util::ready!(self.s.poll_recv_data(cx)) {
+            match futures::ready!(self.s.poll_recv_data(cx)) {
                 Ok(data_opt) => match data_opt {
                     Some(mut data) => {
                         let f = hyper::body::Frame::data(data.copy_to_bytes(data.remaining()));
@@ -55,7 +55,7 @@ where
             }
         } else {
             tracing::debug!("server incomming poll_frame recv_trailers");
-            match futures_util::ready!(self.s.poll_recv_trailers(cx))? {
+            match futures::ready!(self.s.poll_recv_trailers(cx))? {
                 Some(tr) => std::task::Poll::Ready(Some(Ok(hyper::body::Frame::trailers(tr)))),
                 None => std::task::Poll::Ready(None),
             }
