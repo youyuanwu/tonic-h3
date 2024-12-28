@@ -16,7 +16,9 @@ pub trait H3Acceptor {
     type SS: h3::quic::SendStream<Bytes> + Send;
     type RS: h3::quic::RecvStream + Send + 'static;
     type OE: Into<Box<dyn std::error::Error>> + Send;
-    type BS: h3::quic::BidiStream<Bytes, RecvStream = Self::RS, SendStream = Self::SS> + Send;
+    type BS: h3::quic::BidiStream<Bytes, RecvStream = Self::RS, SendStream = Self::SS>
+        + Send
+        + 'static;
 
     fn accept(
         &mut self,

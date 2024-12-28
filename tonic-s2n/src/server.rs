@@ -5,6 +5,12 @@ pub struct H3S2nAcceptor {
     ep: s2n_quic::Server,
 }
 
+impl H3S2nAcceptor {
+    pub fn new(ep: s2n_quic::Server) -> Self {
+        Self { ep }
+    }
+}
+
 impl H3Acceptor for H3S2nAcceptor {
     type CONN = s2n_quic_h3::Connection;
 

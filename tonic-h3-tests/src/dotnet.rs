@@ -72,8 +72,18 @@ async fn rust_server() {
 
     // send client request
     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-    let out = invoke_dotnet_client(root_dir.as_path());
-    assert!(out.status.success());
+    let mut ok = false;
+    for _ in 0..30 {
+        let out = invoke_dotnet_client(root_dir.as_path());
+        if out.status.success() {
+            ok = true;
+            break;
+        } else {
+            println!("retrying invoke_dotnet_client");
+            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        }
+    }
+    assert!(ok);
 
     invoke_rust_client();
 

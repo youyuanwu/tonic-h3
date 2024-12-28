@@ -129,11 +129,14 @@ where
                         break;
                     }
                 };
-                if let Err(e) =
-                    crate::serve_request2::<AC, _, _>(request, stream, h_svc_cp.clone()).await
-                {
-                    tracing::debug!("server request failed: {}", e);
-                }
+                let h_svc_cp = h_svc_cp.clone();
+                tokio::spawn(async move {
+                    if let Err(e) =
+                        crate::serve_request2::<AC, _, _>(request, stream, h_svc_cp.clone()).await
+                    {
+                        tracing::debug!("server request failed: {}", e);
+                    }
+                });
             }
         });
     }
@@ -176,8 +179,6 @@ where
 
     // write body or trailer.
     server_body::send_h3_server_body::<BD, AC::BS>(&mut w, res_b).await?;
-
-    w.finish().await?;
 
     tracing::debug!("serving request end");
     Ok(())

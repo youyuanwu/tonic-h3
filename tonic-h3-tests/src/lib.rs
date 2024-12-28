@@ -1,6 +1,5 @@
 use std::{net::SocketAddr, sync::Arc};
 
-use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use tokio_util::sync::CancellationToken;
 
 #[cfg(test)]
@@ -56,26 +55,14 @@ pub fn try_setup_tracing() {
 }
 
 // returns handle and listening addr
-pub fn run_test_server(
+pub fn run_test_quinn_server(
     in_addr: SocketAddr,
     token: CancellationToken,
-    cert: &CertificateDer<'static>,
-    key: &PrivateKeyDer<'static>,
 ) -> (
     tokio::task::JoinHandle<Result<(), tonic_h3::Error>>,
     SocketAddr,
 ) {
-    let mut tls_config = rustls::ServerConfig::builder_with_provider(
-        rustls::crypto::ring::default_provider().into(),
-    )
-    .with_safe_default_protocol_versions()
-    .unwrap()
-    .with_no_client_auth()
-    .with_single_cert(vec![cert.clone()], key.clone_key())
-    .unwrap();
-    tls_config.alpn_protocols = vec![b"h3".to_vec()];
-    tls_config.max_early_data_size = u32::MAX;
-    let tls_config = Arc::new(tls_config);
+    let tls_config = Arc::new(make_rustls_server_config());
 
     let server_config = quinn::ServerConfig::with_crypto(Arc::new(
         quinn::crypto::rustls::QuicServerConfig::try_from(tls_config).unwrap(),
@@ -87,7 +74,6 @@ pub fn run_test_server(
 
     let hello_svc = crate::HelloWorldService {};
     let svc = tonic::service::Routes::new(crate::greeter_server::GreeterServer::new(hello_svc));
-    //let reqs = tonic_h3::incoming_req(tonic_h3::quinn::incoming_conn_quinn(endpoint.clone()));
     let acceptor = tonic_h3::quinn::H3QuinnAcceptor::new(endpoint.clone());
 
     // run server in background
@@ -96,6 +82,36 @@ pub fn run_test_server(
             tonic_h3::serve_tonic2(svc, acceptor, async move { token.cancelled().await }).await;
         endpoint.wait_idle().await;
         res
+    });
+    (h_sv, listen_addr)
+}
+
+pub fn run_test_s2n_server(
+    in_addr: SocketAddr,
+    token: CancellationToken,
+) -> (
+    tokio::task::JoinHandle<Result<(), tonic_h3::Error>>,
+    SocketAddr,
+) {
+    let tls = s2n_quic::provider::tls::rustls::server::Server::from(make_rustls_server_config());
+
+    let server = s2n_quic::Server::builder()
+        .with_tls(tls)
+        .unwrap()
+        .with_io(in_addr)
+        .unwrap()
+        .start()
+        .unwrap();
+
+    let listen_addr = server.local_addr().unwrap();
+
+    let hello_svc = crate::HelloWorldService {};
+    let svc = tonic::service::Routes::new(crate::greeter_server::GreeterServer::new(hello_svc));
+    let acceptor = tonic_s2n::server::H3S2nAcceptor::new(server);
+
+    // run server in background
+    let h_sv = tokio::spawn(async move {
+        tonic_h3::serve_tonic2(svc, acceptor, async move { token.cancelled().await }).await
     });
     (h_sv, listen_addr)
 }
@@ -179,6 +195,21 @@ pub fn make_danger_rustls_client_config() -> rustls::ClientConfig {
     tls_config
 }
 
+pub fn make_rustls_server_config() -> rustls::ServerConfig {
+    let (cert, key) = crate::make_test_cert_rustls(vec!["localhost".to_string()]);
+    let mut tls_config = rustls::ServerConfig::builder_with_provider(
+        rustls::crypto::ring::default_provider().into(),
+    )
+    .with_safe_default_protocol_versions()
+    .unwrap()
+    .with_no_client_auth()
+    .with_single_cert(vec![cert.clone()], key.clone_key())
+    .unwrap();
+    tls_config.alpn_protocols = vec![b"h3".to_vec()];
+    tls_config.max_early_data_size = u32::MAX;
+    tls_config
+}
+
 pub fn make_test_quinn_client_endpoint() -> h3_quinn::quinn::Endpoint {
     let tls_config = make_danger_rustls_client_config();
     let mut client_endpoint = h3_quinn::quinn::Endpoint::client("[::]:0".parse().unwrap()).unwrap();
@@ -203,20 +234,36 @@ pub fn make_test_s2n_client_endpoint() -> s2n_quic::Client {
 
 #[cfg(test)]
 mod h3_tests {
-    use std::time::Duration;
+    use std::{net::SocketAddr, time::Duration};
     use tokio_util::sync::CancellationToken;
     use tonic::transport::Uri;
 
     #[tokio::test]
-    async fn h3_test() {
+    async fn h3_quinn_test() {
+        h3_test(crate::run_test_quinn_server).await;
+    }
+
+    #[tokio::test]
+    async fn h3_s2n_test() {
+        h3_test(crate::run_test_s2n_server).await;
+    }
+
+    // takes in the fn to start the server and then send request to the server.
+    #[allow(clippy::type_complexity)]
+    async fn h3_test(
+        run_server: fn(
+            SocketAddr,
+            CancellationToken,
+        ) -> (
+            tokio::task::JoinHandle<Result<(), tonic_h3::Error>>,
+            SocketAddr,
+        ),
+    ) {
         crate::try_setup_tracing();
 
-        let (cert, key) = crate::make_test_cert_rustls(vec!["localhost".to_string()]);
-
         let addr: std::net::SocketAddr = "127.0.0.1:0".parse().unwrap();
-
         let token = CancellationToken::new();
-        let (h_svr, listen_addr) = crate::run_test_server(addr, token.clone(), &cert, &key);
+        let (h_svr, listen_addr) = run_server(addr, token.clone()); //crate::run_test_s2n_server(addr, token.clone());
         tracing::debug!("listenaddr : {}", listen_addr);
 
         // send client request
