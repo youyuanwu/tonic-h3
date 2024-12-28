@@ -87,14 +87,13 @@ pub fn run_test_server(
 
     let hello_svc = crate::HelloWorldService {};
     let svc = tonic::service::Routes::new(crate::greeter_server::GreeterServer::new(hello_svc));
-    let reqs = tonic_h3::incoming_req(tonic_h3::quinn::incoming_conn_quinn(endpoint.clone()));
+    //let reqs = tonic_h3::incoming_req(tonic_h3::quinn::incoming_conn_quinn(endpoint.clone()));
+    let acceptor = tonic_h3::quinn::H3QuinnAcceptor::new(endpoint.clone());
 
     // run server in background
     let h_sv = tokio::spawn(async move {
-        let res = tonic_h3::serve_tonic::<h3_quinn::Connection, _, _>(svc, reqs, async move {
-            token.cancelled().await
-        })
-        .await;
+        let res =
+            tonic_h3::serve_tonic2(svc, acceptor, async move { token.cancelled().await }).await;
         endpoint.wait_idle().await;
         res
     });
