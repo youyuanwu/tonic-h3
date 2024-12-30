@@ -33,4 +33,4 @@ tonic-h3 = { path = "tonic-h3" }
 tonic-h3-s2n = { path = "tonic-h3-s2n"}
 
 [patch.crates-io]
-h3 = { git = "https://github.com/youyuanwu/h3.git", rev = "131ea7710cacd221dc8529f7a4c3dbebaed94cfa" }
+h3 = { git = "https://github.com/hyperium/h3.git", rev = "d47e24a9b6079287eb584dfafc09bd15b28e3867" }
