@@ -202,6 +202,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitfield"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2d7e60934ceec538daadb9d8432424ed043a904d8e0243f3c6446bce549a46ac"
+
+[[package]]
 name = "bitflags"
 version = "2.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -224,6 +230,16 @@ name = "bytes"
 version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "325918d6fe32f23b19878fe4b34794ae41fc19ddbe53b10571a4874d44ffd39b"
+
+[[package]]
+name = "c-types"
+version = "3.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "557b349c631f2a0c9650871fd9371a8cee78dda558074a4f636ef3f47e4de17c"
+dependencies = [
+ "libc",
+ "windows-sys 0.52.0",
+]
 
 [[package]]
 name = "cc"
@@ -594,6 +610,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
 
 [[package]]
+name = "hex"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
+
+[[package]]
 name = "hex-literal"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -897,6 +919,52 @@ dependencies = [
  "libc",
  "wasi 0.11.0+wasi-snapshot-preview1",
  "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "msquic"
+version = "0.1.0"
+source = "git+https://github.com/youyuanwu/msquic-h3.git?rev=0079886562f4cf4e791173bf7411daf56742ab12#0079886562f4cf4e791173bf7411daf56742ab12"
+dependencies = [
+ "bytes",
+ "h3",
+ "hex",
+ "msquic-sys2",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "msquic-rs"
+version = "0.1.0"
+source = "git+https://github.com/youyuanwu/msquic-h3.git?rev=0079886562f4cf4e791173bf7411daf56742ab12#0079886562f4cf4e791173bf7411daf56742ab12"
+dependencies = [
+ "lazy_static",
+ "libloading",
+ "mssf-pal",
+ "windows",
+ "windows-core 0.57.0",
+]
+
+[[package]]
+name = "msquic-sys2"
+version = "0.1.0"
+source = "git+https://github.com/youyuanwu/msquic-h3.git?rev=0079886562f4cf4e791173bf7411daf56742ab12#0079886562f4cf4e791173bf7411daf56742ab12"
+dependencies = [
+ "bitfield",
+ "c-types",
+ "libc",
+ "msquic-rs",
+ "serde",
+]
+
+[[package]]
+name = "mssf-pal"
+version = "0.0.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f863286450d8fb2ed697444158cdac0d9ee5e7895c20b67be29887f97a513135"
+dependencies = [
+ "windows-core 0.58.0",
 ]
 
 [[package]]
@@ -2008,6 +2076,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "tonic-h3-msquic"
+version = "0.1.0"
+dependencies = [
+ "http",
+ "msquic",
+ "tonic-h3",
+ "tracing",
+]
+
+[[package]]
 name = "tonic-h3-s2n"
 version = "0.1.0"
 dependencies = [
@@ -2024,6 +2102,8 @@ name = "tonic-h3-test"
 version = "0.1.0"
 dependencies = [
  "h3-quinn",
+ "msquic",
+ "msquic-sys2",
  "prost",
  "quinn",
  "rcgen",
@@ -2035,6 +2115,7 @@ dependencies = [
  "tonic",
  "tonic-build",
  "tonic-h3",
+ "tonic-h3-msquic",
  "tonic-h3-s2n",
  "tracing",
  "tracing-subscriber",
@@ -2276,6 +2357,113 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
  "windows-sys 0.59.0",
+]
+
+[[package]]
+name = "windows"
+version = "0.57.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "12342cb4d8e3b046f3d80effd474a7a02447231330ef77d71daa6fbc40681143"
+dependencies = [
+ "windows-core 0.57.0",
+ "windows-targets",
+]
+
+[[package]]
+name = "windows-core"
+version = "0.57.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d2ed2439a290666cd67ecce2b0ffaad89c2a56b976b736e6ece670297897832d"
+dependencies = [
+ "windows-implement 0.57.0",
+ "windows-interface 0.57.0",
+ "windows-result 0.1.2",
+ "windows-targets",
+]
+
+[[package]]
+name = "windows-core"
+version = "0.58.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6ba6d44ec8c2591c134257ce647b7ea6b20335bf6379a27dac5f1641fcf59f99"
+dependencies = [
+ "windows-implement 0.58.0",
+ "windows-interface 0.58.0",
+ "windows-result 0.2.0",
+ "windows-strings",
+ "windows-targets",
+]
+
+[[package]]
+name = "windows-implement"
+version = "0.57.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9107ddc059d5b6fbfbffdfa7a7fe3e22a226def0b2608f72e9d552763d3e1ad7"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "windows-implement"
+version = "0.58.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2bbd5b46c938e506ecbce286b6628a02171d56153ba733b6c741fc627ec9579b"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "windows-interface"
+version = "0.57.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "29bee4b38ea3cde66011baa44dba677c432a78593e202392d1e9070cf2a7fca7"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "windows-interface"
+version = "0.58.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "053c4c462dc91d3b1504c6fe5a726dd15e216ba718e84a0e46a88fbe5ded3515"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "windows-result"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5e383302e8ec8515204254685643de10811af0ed97ea37210dc26fb0032647f8"
+dependencies = [
+ "windows-targets",
+]
+
+[[package]]
+name = "windows-result"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d1043d8214f791817bab27572aaa8af63732e11bf84aa21a45a78d6c317ae0e"
+dependencies = [
+ "windows-targets",
+]
+
+[[package]]
+name = "windows-strings"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4cd9b125c486025df0eabcb585e62173c6c9eddcec5d117d3b6e8c30e2ee4d10"
+dependencies = [
+ "windows-result 0.2.0",
+ "windows-targets",
 ]
 
 [[package]]

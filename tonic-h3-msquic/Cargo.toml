@@ -1,0 +1,11 @@
+[package]
+name = "tonic-h3-msquic"
+version = "0.1.0"
+edition = "2021"
+publish = false # msquic crate is not stable
+
+[dependencies]
+msquic.workspace = true
+tonic-h3.workspace = true
+tracing.workspace = true
+http.workspace = true

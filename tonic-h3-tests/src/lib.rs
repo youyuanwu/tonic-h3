@@ -233,6 +233,39 @@ pub fn make_test_s2n_client_endpoint() -> s2n_quic::Client {
         .unwrap()
 }
 
+pub fn make_test_msquic_client_parts() -> (
+    msquic::core::reg::QRegistration,
+    msquic::core::config::QConfiguration,
+) {
+    let api = msquic::core::api::QApi::default();
+
+    let app_name = std::ffi::CString::new("testapp").unwrap();
+    let config = msquic_sys2::RegistrationConfig {
+        app_name: app_name.as_ptr(),
+        execution_profile: msquic_sys2::EXECUTION_PROFILE_LOW_LATENCY,
+    };
+    let q_reg = msquic::core::reg::QRegistration::new(&api, &config);
+
+    use msquic::core::buffer::{QBufferVec, QVecBuffer};
+    let args: [QVecBuffer; 1] = ["h3".into()];
+    let alpn = QBufferVec::from(args.as_slice());
+
+    // create an client
+    // open client
+    let mut client_settings = msquic_sys2::Settings::new();
+    client_settings.set_idle_timeout_ms(30000);
+    let client_config =
+        msquic::core::config::QConfiguration::new(&q_reg, alpn.as_buffers(), &client_settings);
+    {
+        let mut cred_config = msquic_sys2::CredentialConfig::new_client();
+        cred_config.cred_type = msquic_sys2::CREDENTIAL_TYPE_NONE;
+        cred_config.cred_flags = msquic_sys2::CREDENTIAL_FLAG_CLIENT;
+        cred_config.cred_flags |= msquic_sys2::CREDENTIAL_FLAG_NO_CERTIFICATE_VALIDATION;
+        client_config.load_cred(&cred_config);
+    }
+    (q_reg, client_config)
+}
+
 #[cfg(test)]
 mod h3_tests {
     use std::{net::SocketAddr, time::Duration};
@@ -305,7 +338,7 @@ mod h3_tests {
         // test s2n client
         let mut s2n_ep = crate::make_test_s2n_client_endpoint();
         {
-            let channel = tonic_h3_s2n::client::new_s2n_h3_channel(uri, s2n_ep.clone());
+            let channel = tonic_h3_s2n::client::new_s2n_h3_channel(uri.clone(), s2n_ep.clone());
             let mut client = crate::greeter_client::GreeterClient::new(channel);
             {
                 let request = tonic::Request::new(crate::HelloRequest {
@@ -317,6 +350,25 @@ mod h3_tests {
             }
         }
         s2n_ep.wait_idle().await.unwrap();
+
+        // test msquic client
+        // TODO: msquic async rust wrapper has but and this does not work yet.
+        if false {
+            let (reg, config) = crate::make_test_msquic_client_parts();
+            let channel = tonic_h3::H3Channel::new(
+                tonic_h3_msquic::client::H3MsQuicConnector::new(config, reg, uri.clone()),
+                uri.clone(),
+            );
+            let mut client = crate::greeter_client::GreeterClient::new(channel);
+            {
+                let request = tonic::Request::new(crate::HelloRequest {
+                    name: "Tonic-MsQuic".into(),
+                });
+                let response = client.say_hello(request).await.unwrap();
+
+                tracing::debug!("RESPONSE={:?}", response);
+            }
+        }
 
         token.cancel();
         h_svr.await.unwrap().unwrap();

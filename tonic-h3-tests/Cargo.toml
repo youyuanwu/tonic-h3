@@ -19,6 +19,9 @@ tracing-subscriber.workspace = true
 tracing.workspace = true
 s2n-quic.workspace = true
 tonic-h3-s2n.workspace = true
+tonic-h3-msquic.workspace = true
+msquic.workspace = true
+msquic-sys2.workspace = true
 
 [build-dependencies]
 tonic-build.workspace = true
