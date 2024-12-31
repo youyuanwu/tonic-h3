@@ -4,7 +4,8 @@ members = [ "tonic-h3-s2n","tonic-h3", "tonic-h3-tests", "tonic-h3-msquic"]
 
 [workspace.dependencies]
 futures = "0.3"
-h3 = "0.0.6"
+# need to wait for h3 new version to publish this.
+h3 = { version = "0.0.6", git = "https://github.com/hyperium/h3.git", rev = "d47e24a9b6079287eb584dfafc09bd15b28e3867" }
 h3-quinn = "0.0.7"
 http = "1"
 hyper = { version = "1" }

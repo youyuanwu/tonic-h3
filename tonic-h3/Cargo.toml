@@ -1,7 +1,15 @@
 [package]
 name = "tonic-h3"
-version = "0.1.0"
+version = "0.0.1"
 edition = "2021"
+license = "MIT"
+authors = ["youyuanwu@outlook.com"]
+repository = "https://github.com/youyuanwu/tonic-h3"
+documentation = "https://docs.rs/tonic-tls/latest/tonic_h3/"
+description = "gRPC over HTTP/3 for Rust"
+categories = ["web-programming", "network-programming"]
+keywords = ["gRPC", "h3"]
+readme = "../README.md"
 
 [dependencies]
 futures.workspace = true
