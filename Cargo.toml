@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = [ "tonic-h3-s2n","tonic-h3", "tonic-h3-tests", "tonic-h3-msquic", "h3-util"]
+members = [ "tonic-h3-s2n","tonic-h3", "tonic-h3-tests", "tonic-h3-msquic", "h3-util", "axum-h3"]
 
 [workspace.dependencies]
 futures = "0.3"
@@ -38,6 +38,7 @@ tonic-h3 = { path = "tonic-h3" }
 tonic-h3-s2n = { path = "tonic-h3-s2n" }
 tonic-h3-msquic = { path = "tonic-h3-msquic" }
 h3-util = { path = "h3-util" }
+axum-h3 = { path = "axum-h3" }
 
 
 [patch.crates-io]

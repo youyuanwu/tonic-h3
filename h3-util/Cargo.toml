@@ -10,3 +10,4 @@ h3-quinn.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 http.workspace = true
+futures.workspace = true

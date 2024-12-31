@@ -1,0 +1,16 @@
+[package]
+name = "axum-h3"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+axum.workspace = true
+tokio.workspace = true
+h3-util.workspace = true
+hyper-util.workspace = true
+tracing.workspace = true
+tower.workspace = true
+h3.workspace = true
+http.workspace = true
+hyper.workspace = true
+futures.workspace = true

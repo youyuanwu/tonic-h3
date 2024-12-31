@@ -158,6 +158,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "axum-h3"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "futures",
+ "h3",
+ "h3-util",
+ "http",
+ "hyper",
+ "hyper-util",
+ "tokio",
+ "tower 0.5.2",
+ "tracing",
+]
+
+[[package]]
 name = "backtrace"
 version = "0.3.74"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -584,6 +600,7 @@ dependencies = [
 name = "h3-util"
 version = "0.1.0"
 dependencies = [
+ "futures",
  "h3",
  "h3-quinn",
  "http",
@@ -2076,6 +2093,7 @@ name = "tonic-h3"
 version = "0.0.1"
 dependencies = [
  "axum",
+ "axum-h3",
  "futures",
  "h3",
  "h3-quinn",
