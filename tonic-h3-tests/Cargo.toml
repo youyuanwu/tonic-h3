@@ -22,6 +22,7 @@ tonic-h3-s2n.workspace = true
 tonic-h3-msquic.workspace = true
 msquic.workspace = true
 msquic-sys2.workspace = true
+h3-util.workspace = true
 # doc example
 http.workspace = true
 

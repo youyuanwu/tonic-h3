@@ -31,9 +31,8 @@
 //!```
 
 mod client;
-pub mod quinn;
 pub mod server;
-pub use client::{dns_resolve, H3Channel, H3Connector};
+pub use client::H3Channel;
 use server_body::H3IncomingServer;
 
 mod client_body;

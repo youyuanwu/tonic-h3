@@ -1,5 +1,5 @@
+use h3_util::server::H3Acceptor;
 use hyper::body::Bytes;
-use tonic_h3::server::H3Acceptor;
 
 pub struct H3S2nAcceptor {
     ep: s2n_quic::Server,

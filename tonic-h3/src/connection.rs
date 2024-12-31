@@ -1,11 +1,12 @@
 use std::{pin::Pin, task::Poll};
 
 use futures::future::BoxFuture;
+use h3_util::client::H3Connector;
 use http::{Request, Response};
 use hyper::body::Bytes;
 use tonic::body::BoxBody;
 
-use crate::{client::H3Connector, client_body::H3IncomingClient};
+use crate::client_body::H3IncomingClient;
 
 /// Send request. Lowerest layer.
 #[derive(Clone)]

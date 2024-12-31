@@ -10,3 +10,4 @@ http.workspace = true
 s2n-quic.workspace = true
 hyper.workspace = true
 tracing.workspace = true
+h3-util.workspace = true

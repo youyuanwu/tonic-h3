@@ -9,3 +9,4 @@ msquic.workspace = true
 tonic-h3.workspace = true
 tracing.workspace = true
 http.workspace = true
+h3-util.workspace = true

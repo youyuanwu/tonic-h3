@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = [ "tonic-h3-s2n","tonic-h3", "tonic-h3-tests", "tonic-h3-msquic"]
+members = [ "tonic-h3-s2n","tonic-h3", "tonic-h3-tests", "tonic-h3-msquic", "h3-util"]
 
 [workspace.dependencies]
 futures = "0.3"
@@ -31,10 +31,13 @@ s2n-quic-h3 = { git = "https://github.com/SergioBenitez/s2n-quic-h3.git", rev = 
 msquic = { git = "https://github.com/youyuanwu/msquic-h3.git", rev = "0079886562f4cf4e791173bf7411daf56742ab12" , features = ["trace"]}
 msquic-sys2 = { git = "https://github.com/youyuanwu/msquic-h3.git", rev = "0079886562f4cf4e791173bf7411daf56742ab12" }
 
+axum = {version = "0.7", default-features = false}
+
 # crates in this workspace
 tonic-h3 = { path = "tonic-h3" }
 tonic-h3-s2n = { path = "tonic-h3-s2n" }
 tonic-h3-msquic = { path = "tonic-h3-msquic" }
+h3-util = { path = "h3-util" }
 
 
 [patch.crates-io]

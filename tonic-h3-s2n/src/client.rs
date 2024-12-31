@@ -18,7 +18,7 @@ impl H3S2nConnector {
     }
 }
 
-impl tonic_h3::H3Connector for H3S2nConnector {
+impl h3_util::client::H3Connector for H3S2nConnector {
     type CONN = s2n_quic_h3::Connection;
 
     type OS = s2n_quic_h3::OpenStreams;
@@ -34,7 +34,7 @@ impl tonic_h3::H3Connector for H3S2nConnector {
     async fn connect(&self) -> Result<Self::CONN, tonic_h3::Error> {
         // connect to dns resolved addr.
         let mut conn_err = std::io::Error::from(std::io::ErrorKind::AddrNotAvailable).into();
-        let addrs = tonic_h3::dns_resolve(&self.uri).await?;
+        let addrs = h3_util::client::dns_resolve(&self.uri).await?;
         tracing::debug!("connecting to server: {:?}", addrs);
         for addr in addrs {
             let connect =

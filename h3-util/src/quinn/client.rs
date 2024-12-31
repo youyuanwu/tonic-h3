@@ -48,11 +48,3 @@ impl H3Connector for H3QuinnConnector {
         Err(conn_err)
     }
 }
-
-pub fn new_quinn_h3_channel(
-    uri: Uri,
-    ep: h3_quinn::quinn::Endpoint,
-) -> crate::H3Channel<H3QuinnConnector> {
-    let connector = H3QuinnConnector::new(uri.clone(), "localhost".to_string(), ep);
-    crate::H3Channel::new(connector, uri)
-}

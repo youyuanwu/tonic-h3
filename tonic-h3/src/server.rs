@@ -1,3 +1,4 @@
+use h3_util::server::H3Acceptor;
 use http::{Request, Response};
 use hyper::{
     body::{Body, Bytes},
@@ -7,35 +8,10 @@ use std::future::Future;
 
 use crate::server_body::H3IncomingServer;
 
-pub trait H3Acceptor {
-    type CONN: h3::quic::Connection<
-            Bytes,
-            OpenStreams = Self::OS,
-            SendStream = Self::SS,
-            RecvStream = Self::RS,
-            OpenError = Self::OE,
-            BidiStream = Self::BS,
-        > + Send
-        + 'static;
-    type OS: h3::quic::OpenStreams<Bytes, OpenError = Self::OE, BidiStream = Self::BS>
-        + Clone
-        + Send; // Clone is needed for cloning send_request
-    type SS: h3::quic::SendStream<Bytes> + Send;
-    type RS: h3::quic::RecvStream + Send + 'static;
-    type OE: Into<Box<dyn std::error::Error>> + Send;
-    type BS: h3::quic::BidiStream<Bytes, RecvStream = Self::RS, SendStream = Self::SS>
-        + Send
-        + 'static;
-
-    fn accept(
-        &mut self,
-    ) -> impl std::future::Future<Output = Result<Option<Self::CONN>, crate::Error>> + std::marker::Send;
-}
-
 /// Accept each connection from acceptor, then for each connection
 /// accept each request. Spawn a task to handle each request.
 async fn serve_tonic_inner<AC, F>(
-    svc: tonic::service::Routes,
+    svc: axum::Router,
     mut acceptor: AC,
     signal: F,
 ) -> Result<(), crate::Error>
@@ -43,7 +19,6 @@ where
     AC: H3Acceptor,
     F: Future<Output = ()>,
 {
-    let svc = svc.prepare();
     let svc = tower::ServiceBuilder::new()
         //.add_extension(Arc::new(ConnInfo { addr, certificates }))
         .service(svc);
@@ -128,7 +103,7 @@ where
     SVC: Service<
         Request<H3IncomingServer<AC::RS, Bytes>>,
         Response = Response<BD>,
-        Error = crate::Error,
+        Error = std::convert::Infallible,
     >,
     SVC::Future: 'static,
     BD: Body + 'static,
@@ -186,7 +161,7 @@ impl H3Router {
         AC: H3Acceptor,
         F: Future<Output = ()>,
     {
-        serve_tonic_inner(self.0, acceptor, signal).await
+        serve_tonic_inner(self.0.prepare().into_axum_router(), acceptor, signal).await
     }
 
     /// Runs all services on acceptor

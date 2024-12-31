@@ -17,7 +17,7 @@ impl H3MsQuicConnector {
     }
 }
 
-impl tonic_h3::H3Connector for H3MsQuicConnector {
+impl h3_util::client::H3Connector for H3MsQuicConnector {
     type CONN = msquic::msh3::H3Conn;
 
     type OS = msquic::msh3::H3OpenStream;

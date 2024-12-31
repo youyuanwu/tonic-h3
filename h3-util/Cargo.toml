@@ -1,0 +1,12 @@
+[package]
+name = "h3-util"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+h3.workspace = true
+hyper.workspace = true
+h3-quinn.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+http.workspace = true

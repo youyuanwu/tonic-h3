@@ -581,6 +581,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "h3-util"
+version = "0.1.0"
+dependencies = [
+ "h3",
+ "h3-quinn",
+ "http",
+ "hyper",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "hash_hasher"
 version = "2.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2063,9 +2075,11 @@ dependencies = [
 name = "tonic-h3"
 version = "0.0.1"
 dependencies = [
+ "axum",
  "futures",
  "h3",
  "h3-quinn",
+ "h3-util",
  "http",
  "hyper",
  "hyper-util",
@@ -2079,6 +2093,7 @@ dependencies = [
 name = "tonic-h3-msquic"
 version = "0.1.0"
 dependencies = [
+ "h3-util",
  "http",
  "msquic",
  "tonic-h3",
@@ -2089,6 +2104,7 @@ dependencies = [
 name = "tonic-h3-s2n"
 version = "0.1.0"
 dependencies = [
+ "h3-util",
  "http",
  "hyper",
  "s2n-quic",
@@ -2102,6 +2118,7 @@ name = "tonic-h3-test"
 version = "0.1.0"
 dependencies = [
  "h3-quinn",
+ "h3-util",
  "http",
  "msquic",
  "msquic-sys2",

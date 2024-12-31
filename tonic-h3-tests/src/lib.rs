@@ -75,7 +75,7 @@ pub fn run_test_quinn_server(
     let hello_svc = crate::HelloWorldService {};
     let router = tonic::transport::Server::builder()
         .add_service(crate::greeter_server::GreeterServer::new(hello_svc));
-    let acceptor = tonic_h3::quinn::H3QuinnAcceptor::new(endpoint.clone());
+    let acceptor = h3_util::quinn::H3QuinnAcceptor::new(endpoint.clone());
 
     // run server in background
     let h_sv = tokio::spawn(async move {
@@ -315,8 +315,12 @@ mod h3_tests {
         // quinn client test
         {
             // client drop is required to end connection. drive will end after connection end
-            let channel =
-                tonic_h3::quinn::new_quinn_h3_channel(uri.clone(), client_endpoint.clone());
+            let cc = h3_util::quinn::H3QuinnConnector::new(
+                uri.clone(),
+                "localhost".to_string(),
+                client_endpoint.clone(),
+            );
+            let channel = tonic_h3::H3Channel::new(cc, uri.clone());
             let mut client = crate::greeter_client::GreeterClient::new(channel);
 
             {
@@ -422,7 +426,7 @@ mod doc_example {
     async fn run_server(endpoint: h3_quinn::quinn::Endpoint) -> Result<(), tonic_h3::Error> {
         let router = tonic::transport::Server::builder()
             .add_service(GreeterServer::new(HelloWorldService {}));
-        let acceptor = tonic_h3::quinn::H3QuinnAcceptor::new(endpoint.clone());
+        let acceptor = h3_util::quinn::H3QuinnAcceptor::new(endpoint.clone());
         tonic_h3::server::H3Router::from(router)
             .serve(acceptor)
             .await?;
@@ -435,7 +439,12 @@ mod doc_example {
         uri: http::Uri,
         client_endpoint: h3_quinn::quinn::Endpoint,
     ) -> Result<(), tonic_h3::Error> {
-        let channel = tonic_h3::quinn::new_quinn_h3_channel(uri.clone(), client_endpoint.clone());
+        let cc = h3_util::quinn::H3QuinnConnector::new(
+            uri.clone(),
+            "localhost".to_string(),
+            client_endpoint.clone(),
+        );
+        let channel = tonic_h3::H3Channel::new(cc, uri.clone());
         let mut client = crate::greeter_client::GreeterClient::new(channel);
         let request = tonic::Request::new(crate::HelloRequest {
             name: "Tonic".into(),

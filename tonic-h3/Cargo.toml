@@ -22,3 +22,5 @@ tokio.workspace = true
 tonic.workspace = true
 tower.workspace = true
 tracing.workspace = true
+axum.workspace = true
+h3-util.workspace = true
