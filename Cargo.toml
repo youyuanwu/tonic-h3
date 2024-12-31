@@ -9,7 +9,7 @@ h3 = { version = "0.0.6", git = "https://github.com/hyperium/h3.git", rev = "d47
 h3-quinn = "0.0.7"
 http = "1"
 hyper = { version = "1" }
-hyper-util = "0.1"
+hyper-util = { version = "0.1", default-features = false, features = ["service"]}
 prost = "0.13"
 prost-build = "0.13"
 quinn = "0.11"
@@ -18,9 +18,9 @@ rustls = { version = "0.23", default-features = false, features = ["std"] }
 serial_test = "3"
 tokio = { version = "1", features = ["full"] }
 tokio-util = "0.7"
-tonic = "0.12"
+tonic = { version = "0.12", default-features = true }
 tonic-build = "0.12"
-tower = "0.5"
+tower = { version = "0.5", default-features = false, features = ["util"] }
 tracing = { version = "0.1", features = ["log"] }
 tracing-subscriber = { version = "0.3", default-features = false, features = [
   "fmt",

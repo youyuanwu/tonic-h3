@@ -23,7 +23,7 @@ where
     }
 }
 
-impl<S, B> tonic::transport::Body for H3IncomingClient<S, B>
+impl<S, B> hyper::body::Body for H3IncomingClient<S, B>
 where
     B: Buf,
     S: h3::quic::RecvStream,

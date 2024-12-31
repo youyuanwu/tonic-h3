@@ -22,6 +22,8 @@ tonic-h3-s2n.workspace = true
 tonic-h3-msquic.workspace = true
 msquic.workspace = true
 msquic-sys2.workspace = true
+# doc example
+http.workspace = true
 
 [build-dependencies]
 tonic-build.workspace = true

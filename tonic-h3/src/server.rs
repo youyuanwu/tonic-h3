@@ -32,7 +32,9 @@ pub trait H3Acceptor {
     ) -> impl std::future::Future<Output = Result<Option<Self::CONN>, crate::Error>> + std::marker::Send;
 }
 
-pub async fn serve_tonic<AC, F>(
+/// Accept each connection from acceptor, then for each connection
+/// accept each request. Spawn a task to handle each request.
+async fn serve_tonic_inner<AC, F>(
     svc: tonic::service::Routes,
     mut acceptor: AC,
     signal: F,
@@ -153,4 +155,49 @@ where
 
     tracing::debug!("serving request end");
     Ok(())
+}
+
+/// Router for running tonic services.
+///
+pub struct H3Router(tonic::service::Routes);
+
+/// Converts from router.
+/// TODO: maybe more options from tonic routers needs to be applied here.
+impl From<tonic::transport::server::Router> for H3Router {
+    fn from(value: tonic::transport::server::Router) -> Self {
+        Self::new(value.into_service())
+    }
+}
+
+impl H3Router {
+    pub fn new(routes: tonic::service::Routes) -> Self {
+        Self(routes)
+    }
+}
+
+impl H3Router {
+    /// Runs the service on acceptor until shutdown.
+    pub async fn serve_with_shutdown<AC, F>(
+        self,
+        acceptor: AC,
+        signal: F,
+    ) -> Result<(), crate::Error>
+    where
+        AC: H3Acceptor,
+        F: Future<Output = ()>,
+    {
+        serve_tonic_inner(self.0, acceptor, signal).await
+    }
+
+    /// Runs all services on acceptor
+    pub async fn serve<AC>(self, acceptor: AC) -> Result<(), crate::Error>
+    where
+        AC: H3Acceptor,
+    {
+        self.serve_with_shutdown(acceptor, async {
+            // never returns
+            futures::future::pending().await
+        })
+        .await
+    }
 }

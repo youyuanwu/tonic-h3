@@ -73,14 +73,15 @@ pub fn run_test_quinn_server(
     tracing::debug!("listenaddr : {}", listen_addr);
 
     let hello_svc = crate::HelloWorldService {};
-    let svc = tonic::service::Routes::new(crate::greeter_server::GreeterServer::new(hello_svc));
+    let router = tonic::transport::Server::builder()
+        .add_service(crate::greeter_server::GreeterServer::new(hello_svc));
     let acceptor = tonic_h3::quinn::H3QuinnAcceptor::new(endpoint.clone());
 
     // run server in background
     let h_sv = tokio::spawn(async move {
-        let res =
-            tonic_h3::server::serve_tonic(svc, acceptor, async move { token.cancelled().await })
-                .await;
+        let res = tonic_h3::server::H3Router::from(router)
+            .serve_with_shutdown(acceptor, async move { token.cancelled().await })
+            .await;
         endpoint.wait_idle().await;
         res
     });
@@ -107,12 +108,15 @@ pub fn run_test_s2n_server(
     let listen_addr = server.local_addr().unwrap();
 
     let hello_svc = crate::HelloWorldService {};
-    let svc = tonic::service::Routes::new(crate::greeter_server::GreeterServer::new(hello_svc));
+    let router = tonic::transport::Server::builder()
+        .add_service(crate::greeter_server::GreeterServer::new(hello_svc));
     let acceptor = tonic_h3_s2n::server::H3S2nAcceptor::new(server);
 
     // run server in background
     let h_sv = tokio::spawn(async move {
-        tonic_h3::server::serve_tonic(svc, acceptor, async move { token.cancelled().await }).await
+        tonic_h3::server::H3Router::from(router)
+            .serve_with_shutdown(acceptor, async move { token.cancelled().await })
+            .await
     });
     (h_sv, listen_addr)
 }
@@ -297,7 +301,7 @@ mod h3_tests {
 
         let addr: std::net::SocketAddr = "127.0.0.1:0".parse().unwrap();
         let token = CancellationToken::new();
-        let (h_svr, listen_addr) = run_server(addr, token.clone()); //crate::run_test_s2n_server(addr, token.clone());
+        let (h_svr, listen_addr) = run_server(addr, token.clone());
         tracing::debug!("listenaddr : {}", listen_addr);
 
         // send client request
@@ -372,5 +376,72 @@ mod h3_tests {
 
         token.cancel();
         h_svr.await.unwrap().unwrap();
+    }
+}
+
+/// Code to be used in rust docs
+#[cfg(test)]
+mod doc_example {
+    /// type used in docs
+    #[derive(Clone)]
+    pub struct GreeterServer {}
+    impl tonic::codegen::Service<http::Request<tonic::body::BoxBody>> for GreeterServer {
+        type Response = http::Response<tonic::body::BoxBody>;
+
+        type Error = std::convert::Infallible;
+
+        type Future = std::pin::Pin<
+            Box<dyn std::future::Future<Output = Result<Self::Response, Self::Error>> + Send>,
+        >;
+
+        fn poll_ready(
+            &mut self,
+            _cx: &mut std::task::Context<'_>,
+        ) -> std::task::Poll<Result<(), Self::Error>> {
+            todo!()
+        }
+
+        fn call(&mut self, _req: http::Request<tonic::body::BoxBody>) -> Self::Future {
+            todo!()
+        }
+    }
+
+    impl tonic::server::NamedService for GreeterServer {
+        const NAME: &'static str = "Dummy";
+    }
+
+    impl GreeterServer {
+        pub fn new(_inner: HelloWorldService) -> Self {
+            todo!()
+        }
+    }
+
+    pub struct HelloWorldService {}
+
+    #[allow(dead_code)]
+    async fn run_server(endpoint: h3_quinn::quinn::Endpoint) -> Result<(), tonic_h3::Error> {
+        let router = tonic::transport::Server::builder()
+            .add_service(GreeterServer::new(HelloWorldService {}));
+        let acceptor = tonic_h3::quinn::H3QuinnAcceptor::new(endpoint.clone());
+        tonic_h3::server::H3Router::from(router)
+            .serve(acceptor)
+            .await?;
+        endpoint.wait_idle().await;
+        Ok(())
+    }
+
+    #[allow(dead_code)]
+    async fn run_client(
+        uri: http::Uri,
+        client_endpoint: h3_quinn::quinn::Endpoint,
+    ) -> Result<(), tonic_h3::Error> {
+        let channel = tonic_h3::quinn::new_quinn_h3_channel(uri.clone(), client_endpoint.clone());
+        let mut client = crate::greeter_client::GreeterClient::new(channel);
+        let request = tonic::Request::new(crate::HelloRequest {
+            name: "Tonic".into(),
+        });
+        let response = client.say_hello(request).await?;
+        println!("RESPONSE={:?}", response);
+        Ok(())
     }
 }

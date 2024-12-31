@@ -15,6 +15,37 @@ See [examples](./tonic-h3-tests/examples/) and [tests](./tonic-h3-tests/src/lib.
 
 Compatibility with grpc-dotnet with http3 is tested [here](./dotnet/).
 
+## Examples
+Server:
+```rs
+  async fn run_server(endpoint: h3_quinn::quinn::Endpoint) -> Result<(), tonic_h3::Error> {
+      let router = tonic::transport::Server::builder()
+          .add_service(GreeterServer::new(HelloWorldService {}));
+      let acceptor = tonic_h3::quinn::H3QuinnAcceptor::new(endpoint.clone());
+      tonic_h3::server::H3Router::from(router)
+          .serve(acceptor)
+          .await?;
+      endpoint.wait_idle().await;
+      Ok(())
+  }
+```
+Client:
+```rs
+  async fn run_client(
+      uri: http::Uri,
+      client_endpoint: h3_quinn::quinn::Endpoint,
+  ) -> Result<(), tonic_h3::Error> {
+      let channel = tonic_h3::quinn::new_quinn_h3_channel(uri.clone(), client_endpoint.clone());
+      let mut client = crate::greeter_client::GreeterClient::new(channel);
+      let request = tonic::Request::new(crate::HelloRequest {
+          name: "Tonic".into(),
+      });
+      let response = client.say_hello(request).await?;
+      println!("RESPONSE={:?}", response);
+      Ok(())
+  }
+```
+
 ## License
 
 MIT license. See [LICENSE](LICENSE).
