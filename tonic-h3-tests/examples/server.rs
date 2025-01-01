@@ -6,7 +6,7 @@ async fn main() {
     let addr: std::net::SocketAddr = "127.0.0.1:5047".parse().unwrap();
 
     let token = CancellationToken::new();
-    let (h_svr, listen_addr) = tonic_h3_test::run_test_quinn_server(addr, token.clone());
+    let (h_svr, listen_addr) = tonic_h3_test::run_test_quinn_hello_server(addr, token.clone());
     tracing::debug!("listenaddr : {}", listen_addr);
     tokio::signal::ctrl_c()
         .await

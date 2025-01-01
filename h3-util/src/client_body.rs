@@ -1,5 +1,5 @@
 use h3::client::RequestStream;
-use hyper::body::{Buf, Bytes};
+use hyper::body::{Body, Buf, Bytes};
 
 pub struct H3IncomingClient<S, B>
 where
@@ -70,19 +70,21 @@ where
     }
 }
 
-pub async fn send_h3_client_body<S>(
+pub async fn send_h3_client_body<S, B>(
     w: &mut h3::client::RequestStream<<S as h3::quic::BidiStream<Bytes>>::SendStream, Bytes>,
-    bd: tonic::body::BoxBody,
+    bd: B,
 ) -> Result<(), crate::Error>
 where
     S: h3::quic::BidiStream<hyper::body::Bytes>,
+    B: Body + Send + 'static + Unpin,
+    B::Data: Send,
+    B::Error: Into<crate::Error>,
 {
-    use hyper::body::Body;
     let mut p_b = std::pin::pin!(bd);
     let mut sent_trailers = false;
     while let Some(d) = futures::future::poll_fn(|cx| p_b.as_mut().poll_frame(cx)).await {
         // send body
-        let d = d.map_err(crate::Error::from)?;
+        let d = d.map_err(|e| e.into())?;
         if d.is_data() {
             let mut d = d.into_data().ok().unwrap();
             tracing::debug!("client write data");

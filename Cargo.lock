@@ -606,6 +606,7 @@ dependencies = [
  "http",
  "hyper",
  "tokio",
+ "tower 0.5.2",
  "tracing",
 ]
 
@@ -2099,6 +2100,7 @@ dependencies = [
  "h3-quinn",
  "h3-util",
  "http",
+ "http-body-util",
  "hyper",
  "hyper-util",
  "tokio",
@@ -2135,9 +2137,13 @@ dependencies = [
 name = "tonic-h3-test"
 version = "0.1.0"
 dependencies = [
+ "axum",
+ "axum-h3",
  "h3-quinn",
  "h3-util",
  "http",
+ "http-body-util",
+ "hyper",
  "msquic",
  "msquic-sys2",
  "prost",

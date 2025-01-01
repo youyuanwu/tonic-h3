@@ -1,10 +1,9 @@
 use std::{pin::Pin, task::Poll};
 
+use crate::client::H3Connector;
 use futures::future::BoxFuture;
-use h3_util::client::H3Connector;
 use http::{Request, Response};
-use hyper::body::Bytes;
-use tonic::body::BoxBody;
+use hyper::body::{Body, Bytes};
 
 use crate::client_body::H3IncomingClient;
 
@@ -25,9 +24,12 @@ where
     h: tokio::task::JoinHandle<Result<(), crate::Error>>,
 }
 
-impl<CONN> tower::Service<Request<BoxBody>> for SendRequest<CONN>
+impl<CONN, B> tower::Service<Request<B>> for SendRequest<CONN>
 where
     CONN: H3Connector,
+    B: Body + Send + 'static + Unpin,
+    B::Data: Send,
+    B::Error: Into<crate::Error> + Send,
 {
     type Response = Response<H3IncomingClient<CONN::RS, Bytes>>;
 
@@ -42,18 +44,21 @@ where
         std::task::Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, req: Request<BoxBody>) -> Self::Future {
+    fn call(&mut self, req: Request<B>) -> Self::Future {
         let send_request = self.inner.clone();
-        Box::pin(async move { send_request_inner::<CONN>(req, send_request).await })
+        Box::pin(async move { send_request_inner::<CONN, B>(req, send_request).await })
     }
 }
 
-pub async fn send_request_inner<CONN>(
-    req: hyper::Request<tonic::body::BoxBody>,
+pub async fn send_request_inner<CONN, B>(
+    req: hyper::Request<B>,
     mut send_request: h3::client::SendRequest<CONN::OS, Bytes>,
 ) -> Result<Response<H3IncomingClient<CONN::RS, Bytes>>, crate::Error>
 where
     CONN: H3Connector,
+    B: Body + Send + 'static + Unpin,
+    B::Data: Send,
+    B::Error: Into<crate::Error> + Send,
 {
     let (parts, body) = req.into_parts();
     let head_req = hyper::Request::from_parts(parts, ());
@@ -65,9 +70,9 @@ where
 
     let (mut w, mut r) = stream.split();
     // send body in backgound
-    tokio::spawn(
-        async move { crate::client_body::send_h3_client_body::<CONN::BS>(&mut w, body).await },
-    );
+    tokio::spawn(async move {
+        crate::client_body::send_h3_client_body::<CONN::BS, _>(&mut w, body).await
+    });
 
     // return resp.
     tracing::debug!("recv header");
@@ -87,7 +92,7 @@ where
 }
 
 /// Caches a send_request client, and replace it with new one if broke.
-/// h3 tonic client should reuse 1 quic connection for all requests.
+/// h3 client should reuse 1 quic connection for all requests.
 pub struct CacheSendRequestService<C>
 where
     C: H3Connector,

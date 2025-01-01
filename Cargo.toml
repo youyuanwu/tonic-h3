@@ -32,6 +32,7 @@ msquic = { git = "https://github.com/youyuanwu/msquic-h3.git", rev = "0079886562
 msquic-sys2 = { git = "https://github.com/youyuanwu/msquic-h3.git", rev = "0079886562f4cf4e791173bf7411daf56742ab12" }
 
 axum = {version = "0.7", default-features = false}
+http-body-util = "0.1"
 
 # crates in this workspace
 tonic-h3 = { path = "tonic-h3" }

@@ -6,6 +6,9 @@ use tokio_util::sync::CancellationToken;
 #[cfg(target_os = "windows")]
 mod dotnet;
 
+#[cfg(test)]
+mod axum;
+
 tonic::include_proto!("helloworld"); // The string specified here must match the proto package name
 
 #[derive(Default)]
@@ -54,20 +57,24 @@ pub fn try_setup_tracing() {
         .try_init();
 }
 
+pub fn make_quinn_server_endpoint(in_addr: SocketAddr) -> quinn::Endpoint {
+    let tls_config = Arc::new(make_rustls_server_config());
+
+    let server_config = quinn::ServerConfig::with_crypto(Arc::new(
+        quinn::crypto::rustls::QuicServerConfig::try_from(tls_config).unwrap(),
+    ));
+    quinn::Endpoint::server(server_config, in_addr).unwrap()
+}
+
 // returns handle and listening addr
-pub fn run_test_quinn_server(
+pub fn run_test_quinn_hello_server(
     in_addr: SocketAddr,
     token: CancellationToken,
 ) -> (
     tokio::task::JoinHandle<Result<(), tonic_h3::Error>>,
     SocketAddr,
 ) {
-    let tls_config = Arc::new(make_rustls_server_config());
-
-    let server_config = quinn::ServerConfig::with_crypto(Arc::new(
-        quinn::crypto::rustls::QuicServerConfig::try_from(tls_config).unwrap(),
-    ));
-    let endpoint = quinn::Endpoint::server(server_config, in_addr).unwrap();
+    let endpoint = make_quinn_server_endpoint(in_addr);
 
     let listen_addr = endpoint.local_addr().unwrap();
     tracing::debug!("listenaddr : {}", listen_addr);
@@ -271,14 +278,14 @@ pub fn make_test_msquic_client_parts() -> (
 }
 
 #[cfg(test)]
-mod h3_tests {
+mod tonic_h3_tests {
     use std::{net::SocketAddr, time::Duration};
     use tokio_util::sync::CancellationToken;
     use tonic::transport::Uri;
 
     #[tokio::test]
     async fn h3_quinn_test() {
-        h3_test(crate::run_test_quinn_server).await;
+        h3_test(crate::run_test_quinn_hello_server).await;
     }
 
     #[tokio::test]
