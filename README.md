@@ -15,7 +15,12 @@ See [examples](./tonic-h3-tests/examples/) and [tests](./tonic-h3-tests/src/lib.
 
 Compatibility with grpc-dotnet with http3 is tested [here](./dotnet/).
 
-## Examples
+## Supporting crates
+* [axum-h3](./axum-h3/) Use [axum](https://github.com/tokio-rs/axum) with [h3](https://github.com/hyperium/h3), used by `tonic-h3` server.
+* [h3-util](./h3-util/) Http3 server and client utilities used by `axum-h3` and `tonic-h3`.
+* Other quic wrapping crates to support alternative quic implementations.
+
+## tonic examples
 Server:
 ```rs
   async fn run_server(endpoint: h3_quinn::quinn::Endpoint) -> Result<(), tonic_h3::Error> {

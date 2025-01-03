@@ -159,7 +159,7 @@ dependencies = [
 
 [[package]]
 name = "axum-h3"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "axum",
  "futures",
@@ -598,7 +598,7 @@ dependencies = [
 
 [[package]]
 name = "h3-util"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "futures",
  "h3",

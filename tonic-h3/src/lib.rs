@@ -35,3 +35,8 @@ pub mod server;
 pub use client::H3Channel;
 
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
+
+// Reexport quinn implementation
+pub mod quinn {
+    pub use h3_util::quinn::*;
+}

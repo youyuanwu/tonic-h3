@@ -46,7 +46,10 @@ pub async fn dns_resolve(uri: &Uri) -> std::io::Result<Vec<SocketAddr>> {
     }
 }
 
-/// h3 client channel, wrapping inner types for ease of use.
+/// h3 client connection, wrapping inner types for ease of use.
+/// All request will be sent to the connection established using the connector.
+/// Currently connector can only connect to a fixed server (to support grpc use case).
+/// Expand connector to do resolve different server based on uri can be added in future.
 pub struct H3Connection<C, B>
 where
     C: H3Connector,
@@ -151,6 +154,9 @@ where
     }
 }
 
+/// http3 client.
+/// Note the client does not do dns resolve but blindly sends requests
+/// using connections created by the connector.
 pub struct H3Client<C, B>
 where
     C: H3Connector,

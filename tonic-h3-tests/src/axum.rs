@@ -58,3 +58,44 @@ async fn axum_test() {
     token.cancel();
     svr_h.await.unwrap();
 }
+
+#[tokio::test]
+async fn h2o_client_test() {
+    // cloudflare does not work:
+    // let uri =  http::Uri::from_static("https://cloudflare-quic.com:443/");
+    // This works:
+    // let uri = http::Uri::from_static("https://quic.tech:8443/");
+    let uri = http::Uri::from_static("https://h2o.examp1e.net:443");
+    test_client(uri).await;
+}
+
+#[tokio::test]
+async fn apache_client_test() {
+    let uri = http::Uri::from_static("https://docs.trafficserver.apache.org:443/");
+    test_client(uri).await;
+}
+
+/// Send a get request to the uri.
+async fn test_client(uri: Uri) {
+    let client_endpoint = crate::make_test_quinn_client_endpoint();
+    // quinn client test
+    {
+        // client drop is required to end connection. drive will end after connection end
+        let cc = h3_util::quinn::H3QuinnConnector::new(
+            uri.clone(),
+            uri.host().unwrap().to_string(),
+            client_endpoint.clone(),
+        );
+        let channel = h3_util::client::H3Connection::new(cc, uri.clone());
+        let mut client = h3_util::client::H3Client::new(channel);
+        let req = http::Request::builder()
+            .method("GET")
+            .uri(uri)
+            .body(http_body_util::Empty::<Bytes>::new())
+            .unwrap();
+        let resp = client.send(req).await.unwrap();
+        use http_body_util::BodyExt;
+        let data = resp.into_body().collect().await.unwrap().to_bytes();
+        println!("Resp: {data:?}");
+    }
+}
