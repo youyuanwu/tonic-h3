@@ -205,7 +205,6 @@ where
             let conn = connector
                 .connect()
                 .await
-                .map_err(crate::Error::from)
                 .inspect_err(|e| tracing::debug!("connector error: {e}"))?;
 
             tracing::debug!("making new send_request");

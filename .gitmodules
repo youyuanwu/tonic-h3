@@ -1,0 +1,3 @@
+[submodule "submodules/msquic-h3"]
+	path = submodules/msquic-h3
+	url = https://github.com/youyuanwu/msquic-h3.git

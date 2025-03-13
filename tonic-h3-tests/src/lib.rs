@@ -1,5 +1,6 @@
 use std::{net::SocketAddr, sync::Arc};
 
+use msquic_h3::msquic;
 use tokio_util::sync::CancellationToken;
 
 #[cfg(test)]
@@ -244,37 +245,25 @@ pub fn make_test_s2n_client_endpoint() -> s2n_quic::Client {
         .unwrap()
 }
 
-pub fn make_test_msquic_client_parts() -> (
-    msquic::core::reg::QRegistration,
-    msquic::core::config::QConfiguration,
-) {
-    let api = msquic::core::api::QApi::default();
+pub fn make_test_msquic_client_parts() -> (Arc<msquic::Registration>, Arc<msquic::Configuration>) {
+    let app_name = String::from("testapp");
+    let config = msquic::RegistrationConfig::new().set_app_name(app_name);
+    let reg = msquic::Registration::new(&config).unwrap();
 
-    let app_name = std::ffi::CString::new("testapp").unwrap();
-    let config = msquic_sys2::RegistrationConfig {
-        app_name: app_name.as_ptr(),
-        execution_profile: msquic_sys2::EXECUTION_PROFILE_LOW_LATENCY,
-    };
-    let q_reg = msquic::core::reg::QRegistration::new(&api, &config);
-
-    use msquic::core::buffer::{QBufferVec, QVecBuffer};
-    let args: [QVecBuffer; 1] = ["h3".into()];
-    let alpn = QBufferVec::from(args.as_slice());
-
+    let alpn = msquic::BufferRef::from("h3");
     // create an client
-    // open client
-    let mut client_settings = msquic_sys2::Settings::new();
-    client_settings.set_idle_timeout_ms(30000);
-    let client_config =
-        msquic::core::config::QConfiguration::new(&q_reg, alpn.as_buffers(), &client_settings);
+    // open client. Allow peer open streams: h3 server opens stream to send resp back.
+    let client_settings = msquic::Settings::new()
+        .set_IdleTimeoutMs(5000)
+        .set_PeerBidiStreamCount(10)
+        .set_PeerUnidiStreamCount(10);
+    let client_config = msquic::Configuration::new(&reg, &[alpn], Some(&client_settings)).unwrap();
     {
-        let mut cred_config = msquic_sys2::CredentialConfig::new_client();
-        cred_config.cred_type = msquic_sys2::CREDENTIAL_TYPE_NONE;
-        cred_config.cred_flags = msquic_sys2::CREDENTIAL_FLAG_CLIENT;
-        cred_config.cred_flags |= msquic_sys2::CREDENTIAL_FLAG_NO_CERTIFICATE_VALIDATION;
-        client_config.load_cred(&cred_config);
+        let cred_config = msquic::CredentialConfig::new_client()
+            .set_credential_flags(msquic::CredentialFlags::NO_CERTIFICATE_VALIDATION);
+        client_config.load_credential(&cred_config).unwrap();
     }
-    (q_reg, client_config)
+    (reg.into(), client_config.into())
 }
 
 #[cfg(test)]
@@ -367,11 +356,11 @@ mod tonic_h3_tests {
         s2n_ep.wait_idle().await.unwrap();
 
         // test msquic client
-        // TODO: msquic async rust wrapper has but and this does not work yet.
-        if false {
-            let (reg, config) = crate::make_test_msquic_client_parts();
+        // reg should be the last thing to drop, otherwise it will wait for other handle to drop and deadlock.
+        let (reg, config) = crate::make_test_msquic_client_parts();
+        {
             let channel = tonic_h3::H3Channel::new(
-                tonic_h3_msquic::client::H3MsQuicConnector::new(config, reg, uri.clone()),
+                tonic_h3_msquic::client::H3MsQuicConnector::new(config, reg.clone(), uri.clone()),
                 uri.clone(),
             );
             let mut client = crate::greeter_client::GreeterClient::new(channel);

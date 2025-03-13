@@ -12,10 +12,26 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: submodule msquic-h3
+      run: git submodule update --init
+
+    - name: submodule msquic-h3
+      run: git submodule update --init
+      working-directory: submodules/msquic-h3
+
+    - name: submodule msquic plus
+      run: git submodule update --init
+      working-directory: submodules/msquic-h3/submodules/msquic
+
+    - name: Prepare machine
+      working-directory: submodules/msquic-h3/submodules/msquic
+      run: scripts/prepare-machine.ps1 -Tls openssl -ForBuild -InstallTestCertificates
+      shell: pwsh
+
     - name: Install rust stable
       uses: dtolnay/rust-toolchain@stable
       with:
-        toolchain: 1.79.0
+        toolchain: 1.85.0
         components: rustfmt, clippy
 
     - uses: taiki-e/install-action@protoc
