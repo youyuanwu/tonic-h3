@@ -71,12 +71,19 @@ where
     let (mut w, mut r) = stream.split();
     // send body in backgound
     tokio::spawn(async move {
+        // TODO: cancellation?
         crate::client_body::send_h3_client_body::<CONN::BS, _>(&mut w, body).await
     });
 
     // return resp.
     tracing::debug!("recv header");
-    let (resp, _) = r.recv_response().await?.into_parts();
+    let (resp, _) = r
+        .recv_response()
+        .await
+        .inspect_err(|e| {
+            tracing::error!("recv header error: {e}");
+        })?
+        .into_parts();
     let resp_body = H3IncomingClient::new(r);
     tracing::debug!("return resp");
     Ok(hyper::Response::from_parts(resp, resp_body))
@@ -210,14 +217,17 @@ where
             tracing::debug!("making new send_request");
             let (mut driver, send_request) = h3::client::new(conn).await?;
             let h = tokio::spawn(async move {
+                // TODO: cancellation??? or shutdown???
                 // run in background to maintain h3 connection until end.
                 // Drive the connection
-                std::future::poll_fn(|cx| driver.poll_close(cx))
+                let res = std::future::poll_fn(|cx| driver.poll_close(cx))
                     .await
                     .inspect_err(|e| {
                         tracing::debug!("poll_close failed: {}", e);
                     })
-                    .map_err(crate::Error::from)
+                    .map_err(crate::Error::from);
+                tracing::debug!("h3 driver ended: {res:?}");
+                res
             });
             Ok(SendRequestEntry {
                 inner: SendRequest {

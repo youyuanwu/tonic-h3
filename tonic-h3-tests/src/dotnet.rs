@@ -43,6 +43,8 @@ fn run_rust_server() -> std::process::Child {
             "--",
             "--nocapture",
         ])
+        .stdout(std::process::Stdio::inherit())
+        .stderr(std::process::Stdio::inherit())
         .spawn()
         .unwrap()
 }

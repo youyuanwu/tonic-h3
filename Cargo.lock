@@ -2153,6 +2153,7 @@ dependencies = [
  "h3-util",
  "http",
  "msquic-h3",
+ "tokio",
  "tonic-h3",
  "tracing",
 ]

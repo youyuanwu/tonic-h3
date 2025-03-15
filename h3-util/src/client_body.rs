@@ -81,7 +81,7 @@ where
     B::Error: Into<crate::Error>,
 {
     let mut p_b = std::pin::pin!(bd);
-    let mut sent_trailers = false;
+    // let mut sent_trailers = false;
     while let Some(d) = futures::future::poll_fn(|cx| p_b.as_mut().poll_frame(cx)).await {
         // send body
         let d = d.map_err(|e| e.into())?;
@@ -93,11 +93,11 @@ where
             let d = d.into_trailers().ok().unwrap();
             tracing::debug!("client write trailer: {:?}", d);
             w.send_trailers(d).await?;
-            sent_trailers = true;
+            //     sent_trailers = true;
         }
     }
-    if !sent_trailers {
-        w.finish().await?;
-    }
+    // if !sent_trailers {
+    w.finish().await?;
+    // }
     Ok(())
 }

@@ -14,7 +14,7 @@ builder.Services.Configure<KestrelServerOptions>(options =>
 });
 builder.WebHost.ConfigureKestrel((context, options) =>
 {
-    options.ListenAnyIP(5047, listenOptions =>
+    options.ListenLocalhost(5047, listenOptions =>
     {
         listenOptions.Protocols = HttpProtocols.Http1AndHttp2AndHttp3;
         listenOptions.UseHttps();

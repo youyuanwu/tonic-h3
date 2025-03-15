@@ -12,5 +12,5 @@ async fn main() {
         .await
         .expect("failed to listen for event");
     token.cancel();
-    h_svr.await.unwrap().unwrap();
+    h_svr.await.unwrap();
 }

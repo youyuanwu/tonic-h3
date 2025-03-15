@@ -83,7 +83,6 @@ where
     S: h3::quic::BidiStream<hyper::body::Bytes>,
 {
     let mut p_b = std::pin::pin!(bd);
-    let mut sent_trailers = false;
     while let Some(d) = futures::future::poll_fn(|cx| p_b.as_mut().poll_frame(cx)).await {
         // send body
         let d = d.map_err(crate::Error::from)?;
@@ -95,11 +94,11 @@ where
             let d = d.into_trailers().ok().unwrap();
             tracing::debug!("serving request write trailer: {:?}", d);
             w.send_trailers(d).await?;
-            sent_trailers = true;
         }
     }
-    if !sent_trailers {
-        w.finish().await?;
-    }
+    // Close the stream gracefully.
+    // This is technically only needed when not writing trailers.
+    // But msquic-h3 requires stream be gracefully closed all the time.
+    w.finish().await?;
     Ok(())
 }
