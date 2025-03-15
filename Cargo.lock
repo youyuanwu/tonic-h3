@@ -84,11 +84,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ace50bade8e6234aa140d9a2f552bbee1db4d353f69b8217bc503490fc1a9f26"
 
 [[package]]
+name = "aws-lc-fips-sys"
+version = "0.13.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7c6f97c07b7eb57063d9f62cbb5638bcdf699888f8e9febd07a88b156c4b05bb"
+dependencies = [
+ "bindgen 0.69.5",
+ "cc",
+ "cmake",
+ "dunce",
+ "fs_extra",
+ "regex",
+]
+
+[[package]]
 name = "aws-lc-rs"
 version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f409eb70b561706bf8abba8ca9c112729c481595893fd06a2dd9af8ed8441148"
 dependencies = [
+ "aws-lc-fips-sys",
  "aws-lc-sys",
  "paste",
  "untrusted 0.7.1",
@@ -683,6 +698,12 @@ name = "heck"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
+
+[[package]]
+name = "hex"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 
 [[package]]
 name = "hex-literal"
@@ -1641,6 +1662,8 @@ dependencies = [
  "s2n-quic-crypto",
  "s2n-quic-platform",
  "s2n-quic-rustls",
+ "s2n-quic-tls",
+ "s2n-quic-tls-default",
  "s2n-quic-transport",
  "tokio",
  "zerocopy",
@@ -1665,6 +1688,7 @@ dependencies = [
  "pin-project-lite",
  "s2n-codec",
  "subtle",
+ "tracing",
  "zerocopy",
 ]
 
@@ -1685,12 +1709,12 @@ dependencies = [
 [[package]]
 name = "s2n-quic-h3"
 version = "0.1.0"
-source = "git+https://github.com/SergioBenitez/s2n-quic-h3.git?rev=f83247128132c968d57a99fa5e76ac7f1528ea10#f83247128132c968d57a99fa5e76ac7f1528ea10"
 dependencies = [
  "bytes",
  "futures",
  "h3",
  "s2n-quic",
+ "tracing",
 ]
 
 [[package]]
@@ -1723,6 +1747,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "s2n-quic-tls"
+version = "0.51.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b33e9bbfb8a403a2175fd81d625e2cb9ad7830a9a70c092b6636afd0f646b310"
+dependencies = [
+ "bytes",
+ "errno",
+ "libc",
+ "s2n-codec",
+ "s2n-quic-core",
+ "s2n-quic-crypto",
+ "s2n-tls",
+]
+
+[[package]]
+name = "s2n-quic-tls-default"
+version = "0.51.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "26b7780553cdb10721a6833642cd2ac79529b9a1c8d58060a1d9e1f36e403659"
+dependencies = [
+ "s2n-quic-rustls",
+ "s2n-quic-tls",
+]
+
+[[package]]
 name = "s2n-quic-transport"
 version = "0.51.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1738,6 +1787,30 @@ dependencies = [
  "s2n-quic-core",
  "siphasher",
  "smallvec",
+]
+
+[[package]]
+name = "s2n-tls"
+version = "0.3.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "331e244d4ac5b727bc9c40f8ef0e6a11c0dc5f523ba777778e46d7b4dc926839"
+dependencies = [
+ "errno",
+ "hex",
+ "libc",
+ "pin-project-lite",
+ "s2n-tls-sys",
+]
+
+[[package]]
+name = "s2n-tls-sys"
+version = "0.3.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "64d08dfb78b8616abfde3d1432f409ca050e01fd6c8f3b83c1fa01c5266e954a"
+dependencies = [
+ "aws-lc-rs",
+ "cc",
+ "libc",
 ]
 
 [[package]]

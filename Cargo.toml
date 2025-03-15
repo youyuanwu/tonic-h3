@@ -27,7 +27,7 @@ tracing-subscriber = { version = "0.3", default-features = false, features = [
 ] }
 trait-variant = "0.1"
 s2n-quic = { version = "1", default-features = false, features = ["provider-tls-rustls"]}
-s2n-quic-h3 = { git = "https://github.com/SergioBenitez/s2n-quic-h3.git", rev = "f83247128132c968d57a99fa5e76ac7f1528ea10" }
+s2n-quic-h3 = { path = "external/s2n-quic-h3", default-features = false}
 msquic = { path = "submodules/msquic-h3/submodules/msquic" }
 msquic-h3 = { path = "submodules/msquic-h3/crates/libs/msquic-h3" }
 
