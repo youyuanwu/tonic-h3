@@ -631,8 +631,9 @@ dependencies = [
 
 [[package]]
 name = "h3"
-version = "0.0.6"
-source = "git+https://github.com/hyperium/h3.git?rev=d47e24a9b6079287eb584dfafc09bd15b28e3867#d47e24a9b6079287eb584dfafc09bd15b28e3867"
+version = "0.0.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7dfb059a4f28a66f186ed16ad912d142f490676acba59353831d7cb45a96b0d3"
 dependencies = [
  "bytes",
  "fastrand",
@@ -644,9 +645,9 @@ dependencies = [
 
 [[package]]
 name = "h3-quinn"
-version = "0.0.7"
+version = "0.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "17c799f413fceeea505236c4d8132f084ff4b55a652288d91439ee93dc24d855"
+checksum = "690cbdc6600db8490412edf5e2bbec0c88f4d4e83f9e0800428b51e6c23372dc"
 dependencies = [
  "bytes",
  "futures",
@@ -722,9 +723,9 @@ dependencies = [
 
 [[package]]
 name = "http"
-version = "1.2.0"
+version = "1.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f16ca2af56261c99fba8bac40a10251ce8188205a4c448fbb745a2e4daa76fea"
+checksum = "f4a85d31aea989eead29a3aaf9e1115a180df8282431156e533de47660892565"
 dependencies = [
  "bytes",
  "fnv",

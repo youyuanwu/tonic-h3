@@ -4,9 +4,8 @@ members = [ "tonic-h3-s2n","tonic-h3", "tonic-h3-tests", "tonic-h3-msquic", "h3-
 
 [workspace.dependencies]
 futures = "0.3"
-# need to wait for h3 new version to publish this.
-h3 = { version = "0.0.6", git = "https://github.com/hyperium/h3.git", rev = "d47e24a9b6079287eb584dfafc09bd15b28e3867"}
-h3-quinn = "0.0.7"
+h3 = { version = "0.0.7" }
+h3-quinn = "0.0.8"
 http = "1"
 hyper = { version = "1" }
 hyper-util = { version = "0.1", default-features = false, features = ["service"]}
@@ -40,7 +39,3 @@ tonic-h3-s2n = { path = "tonic-h3-s2n" }
 tonic-h3-msquic = { path = "tonic-h3-msquic" }
 h3-util = { path = "h3-util" }
 axum-h3 = { path = "axum-h3" }
-
-
-[patch.crates-io]
-h3 = { git = "https://github.com/hyperium/h3.git", rev = "d47e24a9b6079287eb584dfafc09bd15b28e3867" }

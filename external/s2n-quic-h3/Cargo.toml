@@ -10,7 +10,7 @@ license = "Apache-2.0"
 publish = false
 
 [dependencies]
-h3 = "0.0.6"
+h3 = "0.0.7"
 bytes = { version = "1", default-features = false }
 futures = { version = "0.3", default-features = false }
 tracing = { version = "0.1", optional = true }
