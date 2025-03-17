@@ -2,6 +2,13 @@
 name = "h3-util"
 version = "0.0.1"
 edition = "2021"
+authors = ["youyuanwu@outlook.com"]
+description = "h3 utilities for tonic-h3"
+repository = "https://github.com/youyuanwu/tonic-h3"
+readme = "./README.md"
+license = "MIT"
+categories = ["web-programming", "network-programming"]
+keywords = ["http", "h3"]
 
 [dependencies]
 h3.workspace = true

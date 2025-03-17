@@ -2,6 +2,13 @@
 name = "axum-h3"
 version = "0.0.1"
 edition = "2021"
+license = "MIT"
+authors = ["youyuanwu@outlook.com"]
+repository = "https://github.com/youyuanwu/tonic-h3"
+description = "HTTP/3 for axum"
+categories = ["web-programming", "network-programming"]
+keywords = ["axum", "h3"]
+readme = "README.md"
 
 [dependencies]
 axum.workspace = true
