@@ -1,6 +1,7 @@
 use std::{net::SocketAddr, sync::Arc};
 
-use h3_util::server::H3Acceptor;
+use h3_util::{client::H3Connector, server::H3Acceptor};
+use http::Uri;
 use msquic_h3::msquic;
 use tokio_util::sync::CancellationToken;
 
@@ -10,6 +11,12 @@ mod dotnet;
 
 #[cfg(test)]
 mod axum;
+
+#[cfg(test)]
+mod reconnect;
+
+#[cfg(test)]
+mod mix;
 
 tonic::include_proto!("helloworld"); // The string specified here must match the proto package name
 
@@ -99,6 +106,7 @@ pub fn run_test_quinn_hello_server(
         h_sv.await
             .expect("cannot join")
             .expect("tonic server failed");
+        endpoint.close(0_u16.into(), b"svr shutdown");
         endpoint.wait_idle().await;
         tracing::debug!("test server ended")
     });
@@ -126,7 +134,10 @@ pub fn run_test_s2n_server(
         h_sv.await
             .expect("cannot join")
             .expect("tonic server failed");
-        tracing::debug!("test server ended")
+        tracing::debug!("test server ended");
+        // s2n does not support close so wait a bit to let server release listening port.
+        // tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+        // This does not work.
     });
 
     (h, listen_addr)
@@ -136,6 +147,7 @@ pub fn run_test_s2n_server(
 pub mod msquic_util {
     use std::net::SocketAddr;
 
+    use http::Uri;
     use msquic_h3::{
         msquic::{
             self, BufferRef, CertificateHash, Configuration, Credential, CredentialConfig,
@@ -188,7 +200,24 @@ pub mod msquic_util {
 
         let config = std::sync::Arc::new(config);
         let config_cp = config.clone();
-        let l = Listener::new(&reg, config, &alpn, Some(in_addr)).unwrap();
+        let max_retry = 30;
+        let mut i = 0;
+        let l = loop {
+            match Listener::new(&reg, config.clone(), &alpn, Some(in_addr)) {
+                Ok(l) => break l,
+                Err(e) => {
+                    if i < max_retry
+                        && e.try_as_status_code().unwrap()
+                            == msquic_h3::msquic::StatusCode::QUIC_STATUS_ADDRESS_IN_USE
+                    {
+                        std::thread::yield_now();
+                    } else {
+                        panic!("cannot open server {}", e)
+                    }
+                }
+            }
+            i += 1;
+        };
         let local_addr = l.get_ref().get_local_addr().unwrap().as_socket().unwrap();
         let acceptor = H3MsQuicAcceptor::new(l);
         let acceptor_cp = acceptor.clone();
@@ -204,13 +233,42 @@ pub mod msquic_util {
             // config is closed after listener
             std::mem::drop(acceptor_cp);
             std::mem::drop(config_cp);
-            std::thread::spawn(move || {
+            let th = std::thread::spawn(move || {
                 std::mem::drop(reg);
             });
+            while !th.is_finished() {
+                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+            }
             tracing::debug!("test server ended")
         });
 
         (h, local_addr)
+    }
+
+    pub fn run_msquic_client(
+        uri: Uri,
+        token: CancellationToken,
+    ) -> (
+        tokio::task::JoinHandle<()>,
+        impl h3_util::client::H3Connector,
+    ) {
+        let (reg, config) = crate::make_test_msquic_client_parts();
+
+        let cc = tonic_h3_msquic::client::H3MsQuicConnector::new(config, reg.clone(), uri.clone());
+
+        let h = tokio::spawn(async move {
+            token.cancelled().await;
+            // reg drop will stall the current tokio thread.
+            // Control stream drop will block the reg drop.
+            // One can drop reg after server close as well.
+            let drop_h = std::thread::spawn(move || {
+                std::mem::drop(reg);
+            });
+            while !drop_h.is_finished() {
+                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+            }
+        });
+        (h, cc)
     }
 }
 
@@ -351,124 +409,45 @@ pub fn make_test_msquic_client_parts() -> (Arc<msquic::Registration>, Arc<msquic
     (reg.into(), client_config.into())
 }
 
-#[cfg(test)]
-mod tonic_h3_tests {
-    use std::{net::SocketAddr, time::Duration};
-    use tokio_util::sync::CancellationToken;
-    use tonic::transport::Uri;
+/// run client in background
+/// token cancel will close the endpoint.
+pub fn run_quinn_client(
+    uri: Uri,
+    token: CancellationToken,
+) -> (tokio::task::JoinHandle<()>, impl H3Connector) {
+    let client_endpoint = crate::make_test_quinn_client_endpoint();
+    let cc = tonic_h3::quinn::H3QuinnConnector::new(
+        uri,
+        "localhost".to_string(),
+        client_endpoint.clone(),
+    );
+    let h = tokio::spawn(async move {
+        token.cancelled().await;
+        tracing::debug!("client canancl and close");
+        client_endpoint.close(0_u16.into(), b"client close");
+    });
+    (h, cc)
+}
 
-    #[tokio::test]
-    async fn h3_quinn_test() {
-        h3_test(crate::run_test_quinn_hello_server).await;
-    }
+pub fn run_s2n_client(
+    uri: Uri,
+    token: CancellationToken,
+) -> (tokio::task::JoinHandle<()>, impl H3Connector) {
+    let mut s2n_ep = crate::make_test_s2n_client_endpoint();
 
-    #[tokio::test]
-    async fn h3_s2n_test() {
-        h3_test(crate::run_test_s2n_server).await;
-    }
+    let cc = tonic_h3_s2n::client::H3S2nConnector::new(
+        uri.clone(),
+        uri.host().unwrap().to_string(),
+        s2n_ep.clone(),
+    );
 
-    #[cfg(target_os = "windows")]
-    #[tokio::test]
-    async fn msquic_test() {
-        h3_test(crate::msquic_util::run_test_msquic_server).await;
-    }
-
-    // takes in the fn to start the server and then send request to the server.
-    #[allow(clippy::type_complexity)]
-    async fn h3_test(
-        run_server: fn(SocketAddr, CancellationToken) -> (tokio::task::JoinHandle<()>, SocketAddr),
-    ) {
-        crate::try_setup_tracing();
-
-        let addr: std::net::SocketAddr = "127.0.0.1:0".parse().unwrap();
-        let token = CancellationToken::new();
-        let (h_svr, listen_addr) = run_server(addr, token.clone());
-        tracing::debug!("listenaddr : {}", listen_addr);
-
-        // send client request
-        tokio::time::sleep(Duration::from_secs(1)).await;
-
-        tracing::debug!("connecting quic client.");
-
-        let uri: Uri = format!("https://{}", listen_addr).parse().unwrap();
-
-        let client_endpoint = crate::make_test_quinn_client_endpoint();
-        // quinn client test
-        {
-            // client drop is required to end connection. drive will end after connection end
-            let cc = tonic_h3::quinn::H3QuinnConnector::new(
-                uri.clone(),
-                "localhost".to_string(),
-                client_endpoint.clone(),
-            );
-            let channel = tonic_h3::H3Channel::new(cc, uri.clone());
-            let mut client = crate::greeter_client::GreeterClient::new(channel);
-
-            {
-                let request = tonic::Request::new(crate::HelloRequest {
-                    name: "Tonic".into(),
-                });
-                let response = client.say_hello(request).await.unwrap();
-
-                tracing::debug!("RESPONSE={:?}", response);
-            }
-            {
-                let request = tonic::Request::new(crate::HelloRequest {
-                    name: "Tonic2".into(),
-                });
-                let response = client.say_hello(request).await.unwrap();
-
-                tracing::debug!("RESPONSE={:?}", response);
-            }
-        }
-        tracing::debug!("client wait idle");
-        client_endpoint.wait_idle().await;
-
-        // test s2n client
-        let mut s2n_ep = crate::make_test_s2n_client_endpoint();
-        {
-            let channel = tonic_h3_s2n::client::new_s2n_h3_channel(uri.clone(), s2n_ep.clone());
-            let mut client = crate::greeter_client::GreeterClient::new(channel);
-            {
-                let request = tonic::Request::new(crate::HelloRequest {
-                    name: "Tonic-S2n".into(),
-                });
-                let response = client.say_hello(request).await.unwrap();
-                tracing::debug!("RESPONSE={:?}", response);
-            }
-        }
+    let h = tokio::spawn(async move {
+        token.cancelled().await;
+        // s2n does not support close.
+        tracing::debug!("client endpoint canancl");
         s2n_ep.wait_idle().await.unwrap();
-
-        // test msquic client
-        // reg should be the last thing to drop, otherwise it will wait for other handle to drop and deadlock.
-        let (reg, config) = crate::make_test_msquic_client_parts();
-        {
-            let channel = tonic_h3::H3Channel::new(
-                tonic_h3_msquic::client::H3MsQuicConnector::new(config, reg.clone(), uri.clone()),
-                uri.clone(),
-            );
-            let mut client = crate::greeter_client::GreeterClient::new(channel);
-            {
-                let request = tonic::Request::new(crate::HelloRequest {
-                    name: "Tonic-MsQuic".into(),
-                });
-                let response = client.say_hello(request).await.unwrap();
-                tracing::debug!("RESPONSE={:?}", response);
-            }
-        }
-        // TODO: drop reg here will stuck for quinn.
-        // std::mem::drop(reg);
-        // reg drop will stall the current tokio thread.
-        // Control stream drop will block the reg drop.
-        // One can drop reg after server close as well.
-        let drop_h = std::thread::spawn(move || {
-            std::mem::drop(reg);
-        });
-
-        token.cancel();
-        h_svr.await.unwrap();
-        drop_h.join().unwrap();
-    }
+    });
+    (h, cc)
 }
 
 /// Code to be used in rust docs

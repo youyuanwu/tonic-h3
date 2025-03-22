@@ -1022,7 +1022,6 @@ dependencies = [
  "cmake",
  "ctor",
  "libc",
- "serde",
  "socket2",
 ]
 

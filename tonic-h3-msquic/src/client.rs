@@ -51,6 +51,12 @@ impl Drop for H3MsQuicConnector {
     fn drop(&mut self) {
         // config needs to drop before reg.
         self.config.take();
-        self.reg.take();
+        // this drop maybe blocking since some connections are not finished.
+        let reg = self.reg.take();
+        // HACK: drop in another thread.
+        // TODO: find another way. Or use tokio blocking task.
+        std::thread::spawn(move || {
+            std::mem::drop(reg);
+        });
     }
 }
