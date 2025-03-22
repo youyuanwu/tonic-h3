@@ -21,6 +21,7 @@ where
     CONN: H3Connector,
 {
     inner: SendRequest<CONN>,
+    // Could use a bool to record the last error and reconnect.
     h: tokio::task::JoinHandle<Result<(), crate::Error>>,
 }
 
