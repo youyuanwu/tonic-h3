@@ -200,7 +200,24 @@ pub mod msquic_util {
 
         let config = std::sync::Arc::new(config);
         let config_cp = config.clone();
-        let l = Listener::new(&reg, config, &alpn, Some(in_addr)).unwrap();
+        let max_retry = 30;
+        let mut i = 0;
+        let l = loop {
+            match Listener::new(&reg, config.clone(), &alpn, Some(in_addr)) {
+                Ok(l) => break l,
+                Err(e) => {
+                    if i < max_retry
+                        && e.try_as_status_code().unwrap()
+                            == msquic_h3::msquic::StatusCode::QUIC_STATUS_ADDRESS_IN_USE
+                    {
+                        std::thread::yield_now();
+                    } else {
+                        panic!("cannot open server {}", e)
+                    }
+                }
+            }
+            i += 1;
+        };
         let local_addr = l.get_ref().get_local_addr().unwrap().as_socket().unwrap();
         let acceptor = H3MsQuicAcceptor::new(l);
         let acceptor_cp = acceptor.clone();
