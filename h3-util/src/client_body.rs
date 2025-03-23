@@ -88,6 +88,7 @@ where
         if d.is_data() {
             let mut d = d.into_data().ok().unwrap();
             tracing::debug!("client write data");
+            // in most cases the copy is saved by using Bytes.
             w.send_data(d.copy_to_bytes(d.remaining())).await?;
         } else if d.is_trailers() {
             let d = d.into_trailers().ok().unwrap();

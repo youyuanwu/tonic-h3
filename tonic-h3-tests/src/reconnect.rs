@@ -17,7 +17,6 @@ async fn h3_s2n_test() {
     reconnect_test(crate::run_test_s2n_server, crate::run_s2n_client).await;
 }
 
-#[cfg(target_os = "windows")]
 #[tokio::test]
 #[serial_test::serial]
 async fn h3_msquic_test() {

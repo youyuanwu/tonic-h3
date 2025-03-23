@@ -13,7 +13,6 @@ async fn h3_s2n_test() {
     h3_test(crate::run_test_s2n_server).await;
 }
 
-#[cfg(target_os = "windows")]
 #[tokio::test]
 async fn msquic_test() {
     h3_test(crate::msquic_util::run_test_msquic_server).await;

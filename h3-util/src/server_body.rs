@@ -89,6 +89,7 @@ where
         if d.is_data() {
             let mut d = d.into_data().ok().unwrap();
             tracing::debug!("serving request write data");
+            // Bytes optimizes the shallow copy.
             w.send_data(d.copy_to_bytes(d.remaining())).await?;
         } else if d.is_trailers() {
             let d = d.into_trailers().ok().unwrap();

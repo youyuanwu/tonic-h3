@@ -143,15 +143,15 @@ pub fn run_test_s2n_server(
     (h, listen_addr)
 }
 
-#[cfg(target_os = "windows")]
+// #[cfg(target_os = "windows")]
 pub mod msquic_util {
     use std::net::SocketAddr;
 
     use http::Uri;
     use msquic_h3::{
         msquic::{
-            self, BufferRef, CertificateHash, Configuration, Credential, CredentialConfig,
-            CredentialFlags, Registration, RegistrationConfig, Settings,
+            self, BufferRef, Configuration, Credential, CredentialConfig, CredentialFlags,
+            Registration, RegistrationConfig, Settings,
         },
         Listener,
     };
@@ -159,7 +159,9 @@ pub mod msquic_util {
     use tonic_h3_msquic::server::H3MsQuicAcceptor;
 
     /// Use pwsh to get the test cert hash
-    pub fn get_test_cert_hash() -> String {
+    #[cfg(target_os = "windows")]
+    pub fn get_test_cred() -> Credential {
+        use msquic_h3::msquic::CertificateHash;
         let output = std::process::Command::new("pwsh.exe")
             .args(["-Command", "Get-ChildItem Cert:\\CurrentUser\\My | Where-Object -Property FriendlyName -EQ -Value MsQuicTestServer | Select-Object -ExpandProperty Thumbprint -First 1"]).
             output().expect("Failed to execute command");
@@ -171,15 +173,41 @@ pub mod msquic_util {
                 s.pop();
             }
         };
-        s
+        Credential::CertificateHash(CertificateHash::from_str(&s).unwrap())
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    pub fn get_test_cred() -> Credential {
+        use std::io::Write;
+
+        use msquic_h3::msquic::CertificateFile;
+
+        let cert_dir = std::env::temp_dir().join("tonic_h3_test");
+        let key = "key.pem";
+        let cert = "cert.pem";
+        let key_path = cert_dir.join(key);
+        let cert_path = cert_dir.join(cert);
+        if !key_path.exists() || !cert_path.exists() {
+            // remove the dir
+            let _ = std::fs::remove_dir_all(&cert_dir);
+            std::fs::create_dir_all(&cert_dir).expect("cannot create cert dir");
+            let mut cert_f = std::fs::File::create_new(&cert_path).unwrap();
+            let mut key_f = std::fs::File::create_new(&key_path).unwrap();
+            let (cert, key) = crate::make_test_cert(vec!["localhost".to_string()]);
+            cert_f.write_all(cert.pem().as_bytes()).unwrap();
+            key_f.write_all(key.serialize_pem().as_bytes()).unwrap();
+        }
+        Credential::CertificateFile(CertificateFile::new(
+            key_path.display().to_string(),
+            cert_path.display().to_string(),
+        ))
     }
 
     pub fn run_test_msquic_server(
         in_addr: SocketAddr,
         token: CancellationToken,
     ) -> (tokio::task::JoinHandle<()>, SocketAddr) {
-        let cert_hash = get_test_cert_hash();
-        tracing::info!("Using cert_hash: [{cert_hash}]");
+        let cred = get_test_cred();
         let alpn = [BufferRef::from("h3")];
         let settings = Settings::new()
             .set_PeerBidiStreamCount(10)
@@ -193,9 +221,7 @@ pub mod msquic_util {
 
         let cred_config = CredentialConfig::new()
             .set_credential_flags(CredentialFlags::NO_CERTIFICATE_VALIDATION)
-            .set_credential(Credential::CertificateHash(
-                CertificateHash::from_str(&cert_hash).unwrap(),
-            ));
+            .set_credential(cred);
         config.load_credential(&cred_config).unwrap();
 
         let config = std::sync::Arc::new(config);
