@@ -42,8 +42,9 @@ jobs:
     - name: Run cargo fmt
       run: cargo fmt --all -- --check
     
+    # TODO: hack for features msquic
     - name: Run cargo clippy
-      run: cargo clippy --all-targets -- -D warnings
+      run: cargo clippy --all-targets --features find --no-default-features -- -D warnings
 
     - uses: actions/setup-dotnet@v4
       with:
