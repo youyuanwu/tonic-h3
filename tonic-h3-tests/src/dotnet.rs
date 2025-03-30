@@ -17,6 +17,7 @@ fn invoke_rust_client() {
     let child_client = std::process::Command::new("cargo")
         .args([
             "run",
+            // "--no-default-features", // TODO: remove
             "--package",
             "tonic-h3-test",
             "--example",
@@ -36,6 +37,7 @@ fn run_rust_server() -> std::process::Child {
     std::process::Command::new("cargo")
         .args([
             "run",
+            // "--no-default-features", // TODO: remove
             "--package",
             "tonic-h3-test",
             "--example",

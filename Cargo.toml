@@ -27,8 +27,8 @@ tracing-subscriber = { version = "0.3", default-features = false, features = [
 trait-variant = "0.1"
 s2n-quic = { version = "1", default-features = false, features = ["provider-tls-rustls"]}
 s2n-quic-h3 = { path = "external/s2n-quic-h3", default-features = false}
-msquic = { path = "submodules/msquic-h3/submodules/msquic" }
-msquic-h3 = { path = "submodules/msquic-h3/crates/libs/msquic-h3" }
+# This will use default of msquic and build from source. Need to wait for msquic crate publish
+msquic-h3 = { path = "submodules/msquic-h3" }
 
 axum = {version = "0.7", default-features = false}
 http-body-util = "0.1"

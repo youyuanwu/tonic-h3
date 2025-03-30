@@ -162,15 +162,42 @@ pub mod msquic_util {
     #[cfg(target_os = "windows")]
     pub fn get_test_cred() -> Credential {
         use msquic_h3::msquic::CertificateHash;
-        let output = std::process::Command::new("pwsh.exe")
-            .args(["-Command", "Get-ChildItem Cert:\\CurrentUser\\My | Where-Object -Property FriendlyName -EQ -Value MsQuicTestServer | Select-Object -ExpandProperty Thumbprint -First 1"]).
-            output().expect("Failed to execute command");
-        assert!(output.status.success());
-        let mut s = String::from_utf8(output.stdout).unwrap();
-        if s.ends_with('\n') {
-            s.pop();
-            if s.ends_with('\r') {
+        fn get_hash() -> Option<String> {
+            let get_cert_cmd = "Get-ChildItem Cert:\\CurrentUser\\My | Where-Object -Property FriendlyName -EQ -Value MsQuic-Test | Select-Object -ExpandProperty Thumbprint -First 1";
+            let output = std::process::Command::new("pwsh.exe")
+                .args(["-Command", get_cert_cmd])
+                .output()
+                .expect("Failed to execute command");
+            assert!(output.status.success());
+            let mut s = String::from_utf8(output.stdout).unwrap();
+            if s.ends_with('\n') {
                 s.pop();
+                if s.ends_with('\r') {
+                    s.pop();
+                }
+            };
+            if s.is_empty() {
+                None
+            } else {
+                Some(s)
+            }
+        }
+        fn gen_cert() {
+            let gen_cert_cmd ="New-SelfSignedCertificate -DnsName $env:computername,localhost -FriendlyName MsQuic-Test -KeyUsageProperty Sign -KeyUsage DigitalSignature -CertStoreLocation cert:\\CurrentUser\\My -HashAlgorithm SHA256 -Provider \"Microsoft Software Key Storage Provider\" -KeyExportPolicy Exportable";
+            let output = std::process::Command::new("pwsh.exe")
+                .args(["-Command", gen_cert_cmd])
+                .stdout(std::process::Stdio::inherit())
+                .stderr(std::process::Stdio::inherit())
+                .output()
+                .expect("Failed to execute command");
+            assert!(output.status.success());
+        }
+        // generate the cert if not exist
+        let s = match get_hash() {
+            Some(s) => s,
+            None => {
+                gen_cert();
+                get_hash().unwrap()
             }
         };
         Credential::CertificateHash(CertificateHash::from_str(&s).unwrap())

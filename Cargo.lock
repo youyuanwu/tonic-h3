@@ -1030,7 +1030,7 @@ name = "msquic-h3"
 version = "0.1.0"
 dependencies = [
  "bytes",
- "futures-util",
+ "futures",
  "h3",
  "http",
  "msquic",
