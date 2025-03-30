@@ -80,12 +80,14 @@ pub fn run_test_server(
     token: CancellationToken,
 ) -> tokio::task::JoinHandle<Result<(), tonic_h3::Error>> {
     let hello_svc = crate::HelloWorldService {};
-    let router = tonic::transport::Server::builder()
-        .add_service(crate::greeter_server::GreeterServer::new(hello_svc));
+    let router = tonic::service::Routes::builder()
+        .add_service(crate::greeter_server::GreeterServer::new(hello_svc))
+        .clone()
+        .routes();
 
     // run server in background
     tokio::spawn(async move {
-        tonic_h3::server::H3Router::from(router)
+        tonic_h3::server::H3Router::new(router)
             .serve_with_shutdown(acceptor, async move { token.cancelled().await })
             .await
     })
@@ -509,8 +511,8 @@ mod doc_example {
     /// type used in docs
     #[derive(Clone)]
     pub struct GreeterServer {}
-    impl tonic::codegen::Service<http::Request<tonic::body::BoxBody>> for GreeterServer {
-        type Response = http::Response<tonic::body::BoxBody>;
+    impl tonic::codegen::Service<http::Request<tonic::body::Body>> for GreeterServer {
+        type Response = http::Response<tonic::body::Body>;
 
         type Error = std::convert::Infallible;
 
@@ -525,7 +527,7 @@ mod doc_example {
             todo!()
         }
 
-        fn call(&mut self, _req: http::Request<tonic::body::BoxBody>) -> Self::Future {
+        fn call(&mut self, _req: http::Request<tonic::body::Body>) -> Self::Future {
             todo!()
         }
     }
@@ -544,10 +546,12 @@ mod doc_example {
 
     #[allow(dead_code)]
     async fn run_server(endpoint: h3_quinn::quinn::Endpoint) -> Result<(), tonic_h3::Error> {
-        let router = tonic::transport::Server::builder()
-            .add_service(GreeterServer::new(HelloWorldService {}));
+        let router = tonic::service::Routes::builder()
+            .add_service(GreeterServer::new(HelloWorldService {}))
+            .clone()
+            .routes();
         let acceptor = tonic_h3::quinn::H3QuinnAcceptor::new(endpoint.clone());
-        tonic_h3::server::H3Router::from(router)
+        tonic_h3::server::H3Router::new(router)
             .serve(acceptor)
             .await?;
         endpoint.wait_idle().await;

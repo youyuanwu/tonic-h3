@@ -11,7 +11,7 @@ pub struct H3Channel<C>
 where
     C: H3Connector,
 {
-    inner: H3Connection<C, tonic::body::BoxBody>,
+    inner: H3Connection<C, tonic::body::Body>,
 }
 
 impl<C> H3Channel<C>
@@ -25,7 +25,7 @@ where
     }
 }
 
-impl<C> tower::Service<Request<tonic::body::BoxBody>> for H3Channel<C>
+impl<C> tower::Service<Request<tonic::body::Body>> for H3Channel<C>
 where
     C: H3Connector,
 {
@@ -40,7 +40,7 @@ where
         tower::Service::poll_ready(&mut self.inner, cx)
     }
 
-    fn call(&mut self, req: Request<tonic::body::BoxBody>) -> Self::Future {
+    fn call(&mut self, req: Request<tonic::body::Body>) -> Self::Future {
         // change the body error type to be generic
         // let (header, body) = req.into_parts();
         // use http_body_util::BodyExt;

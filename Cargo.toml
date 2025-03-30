@@ -17,8 +17,8 @@ rustls = { version = "0.23", default-features = false, features = ["std"] }
 serial_test = "3"
 tokio = { version = "1", features = ["full"] }
 tokio-util = "0.7"
-tonic = { version = "0.12", default-features = true }
-tonic-build = "0.12"
+tonic = { version = "0.13", default-features = false, features = ["router", "codegen", "transport", "prost"]}
+tonic-build = "0.13"
 tower = { version = "0.5", default-features = false, features = ["util"] }
 tracing = { version = "0.1", features = ["log"] }
 tracing-subscriber = { version = "0.3", default-features = false, features = [
@@ -30,7 +30,7 @@ s2n-quic-h3 = { path = "external/s2n-quic-h3", default-features = false}
 # This will use default of msquic and build from source. Need to wait for msquic crate publish
 msquic-h3 = { path = "submodules/msquic-h3" }
 
-axum = {version = "0.7", default-features = false}
+axum = {version = "0.8", default-features = false}
 http-body-util = "0.1"
 
 # crates in this workspace

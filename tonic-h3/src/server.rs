@@ -4,14 +4,6 @@ use h3_util::server::H3Acceptor;
 ///
 pub struct H3Router(tonic::service::Routes);
 
-/// Converts from router.
-/// TODO: maybe more options from tonic routers needs to be applied here.
-impl From<tonic::transport::server::Router> for H3Router {
-    fn from(value: tonic::transport::server::Router) -> Self {
-        Self::new(value.into_service())
-    }
-}
-
 impl H3Router {
     pub fn new(routes: tonic::service::Routes) -> Self {
         Self(routes)
