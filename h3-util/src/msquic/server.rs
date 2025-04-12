@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use h3_util::server::H3Acceptor;
+use crate::server::H3Acceptor;
 
 #[derive(Clone)]
 pub struct H3MsQuicAcceptor {
@@ -33,7 +33,7 @@ impl H3Acceptor for H3MsQuicAcceptor {
 
     type BS = msquic_h3::H3Stream;
 
-    async fn accept(&mut self) -> Result<Option<Self::CONN>, tonic_h3::Error> {
+    async fn accept(&mut self) -> Result<Option<Self::CONN>, crate::Error> {
         let conn = self.ep.lock().await.accept().await?;
         Ok(conn)
     }

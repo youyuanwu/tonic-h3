@@ -149,6 +149,7 @@ pub fn run_test_s2n_server(
 pub mod msquic_util {
     use std::net::SocketAddr;
 
+    use h3_util::msquic::server::H3MsQuicAcceptor;
     use http::Uri;
     use msquic_h3::{
         msquic::{
@@ -158,7 +159,6 @@ pub mod msquic_util {
         Listener,
     };
     use tokio_util::sync::CancellationToken;
-    use tonic_h3_msquic::server::H3MsQuicAcceptor;
 
     /// Use pwsh to get the test cert hash
     #[cfg(target_os = "windows")]
@@ -309,7 +309,7 @@ pub mod msquic_util {
     ) {
         let (reg, config) = crate::make_test_msquic_client_parts();
 
-        let cc = tonic_h3_msquic::client::H3MsQuicConnector::new(config, reg.clone(), uri.clone());
+        let cc = h3_util::msquic::client::H3MsQuicConnector::new(config, reg.clone(), uri.clone());
 
         let h = tokio::spawn(async move {
             token.cancelled().await;

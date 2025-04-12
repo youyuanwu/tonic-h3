@@ -150,7 +150,7 @@ dependencies = [
 
 [[package]]
 name = "axum-h3"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "axum",
  "futures",
@@ -615,13 +615,14 @@ dependencies = [
 
 [[package]]
 name = "h3-util"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "futures",
  "h3",
  "h3-quinn",
  "http",
  "hyper",
+ "msquic-h3",
  "tokio",
  "tower",
  "tracing",
@@ -2122,35 +2123,15 @@ dependencies = [
 
 [[package]]
 name = "tonic-h3"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
- "axum",
  "axum-h3",
  "futures",
- "h3",
- "h3-quinn",
  "h3-util",
  "http",
- "http-body-util",
  "hyper",
- "hyper-util",
- "tokio",
  "tonic",
  "tower",
- "tracing",
-]
-
-[[package]]
-name = "tonic-h3-msquic"
-version = "0.1.0"
-dependencies = [
- "h3-util",
- "http",
- "msquic",
- "msquic-h3",
- "tokio",
- "tonic-h3",
- "tracing",
 ]
 
 [[package]]
@@ -2177,6 +2158,7 @@ dependencies = [
  "http",
  "http-body-util",
  "hyper",
+ "msquic",
  "msquic-h3",
  "prost",
  "quinn",
@@ -2189,7 +2171,6 @@ dependencies = [
  "tonic",
  "tonic-build",
  "tonic-h3",
- "tonic-h3-msquic",
  "tonic-h3-s2n",
  "tracing",
  "tracing-subscriber",

@@ -19,7 +19,6 @@ tracing-subscriber.workspace = true
 tracing.workspace = true
 s2n-quic.workspace = true
 tonic-h3-s2n.workspace = true
-tonic-h3-msquic.workspace = true
 msquic-h3.workspace = true
 h3-util.workspace = true
 axum.workspace = true
@@ -28,6 +27,9 @@ http-body-util.workspace = true
 # doc example
 http.workspace = true
 hyper.workspace = true
+
+[dev-dependencies]
+msquic.workspace = true
 
 [build-dependencies]
 tonic-build.workspace = true

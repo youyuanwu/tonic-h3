@@ -1,6 +1,9 @@
 pub mod client;
 pub mod client_body;
 mod connection;
+#[cfg(feature = "msquic")]
+pub mod msquic;
+#[cfg(feature = "quinn")]
 pub mod quinn;
 pub mod server;
 pub mod server_body;

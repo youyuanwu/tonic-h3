@@ -1,6 +1,6 @@
 [package]
 name = "h3-util"
-version = "0.0.1"
+version = "0.0.2"
 edition = "2021"
 authors = ["youyuanwu@outlook.com"]
 description = "h3 utilities for tonic-h3"
@@ -10,12 +10,19 @@ license = "MIT"
 categories = ["web-programming", "network-programming"]
 keywords = ["http", "h3"]
 
+[features]
+default = ["quinn", "msquic"]
+quinn = ["dep:h3-quinn"]
+msquic = ["dep:msquic-h3"]
+
 [dependencies]
 h3.workspace = true
 hyper.workspace = true
-h3-quinn.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 http.workspace = true
 futures.workspace = true
 tower.workspace = true
+
+h3-quinn = { workspace = true, optional = true }
+msquic-h3 = { workspace = true, optional = true }

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = [ "tonic-h3-s2n","tonic-h3", "tonic-h3-tests", "tonic-h3-msquic", "h3-util", "axum-h3"]
+members = [ "tonic-h3-s2n","tonic-h3", "tonic-h3-tests", "h3-util", "axum-h3"]
 
 [workspace.dependencies]
 futures = "0.3"
@@ -37,6 +37,5 @@ http-body-util = "0.1"
 # crates in this workspace
 tonic-h3 = { path = "tonic-h3" }
 tonic-h3-s2n = { path = "tonic-h3-s2n" }
-tonic-h3-msquic = { path = "tonic-h3-msquic" }
-h3-util = { version = "0.0.1", path = "h3-util" }
-axum-h3 = { version = "0.0.1", path = "axum-h3" }
+h3-util = { version = "0.0.2", path = "h3-util" , default-features = false }
+axum-h3 = { version = "0.0.2", path = "axum-h3" }

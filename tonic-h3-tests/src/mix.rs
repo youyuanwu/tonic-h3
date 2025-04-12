@@ -89,7 +89,7 @@ async fn h3_test(
     let (reg, config) = crate::make_test_msquic_client_parts();
     {
         let channel = tonic_h3::H3Channel::new(
-            tonic_h3_msquic::client::H3MsQuicConnector::new(config, reg.clone(), uri.clone()),
+            h3_util::msquic::client::H3MsQuicConnector::new(config, reg.clone(), uri.clone()),
             uri.clone(),
         );
         let mut client = crate::greeter_client::GreeterClient::new(channel);
