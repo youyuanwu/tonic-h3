@@ -3,8 +3,7 @@ use h3_util::{
     client::{H3Connection, H3Connector},
     client_body::H3IncomingClient,
 };
-use http::{Request, Response, Uri};
-use hyper::body::Bytes;
+use hyper::{body::Bytes, Request, Response, Uri};
 
 /// Wrap around h3 channel but change the error type
 pub struct H3Channel<C>

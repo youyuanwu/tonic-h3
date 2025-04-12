@@ -25,8 +25,8 @@ axum.workspace = true
 axum-h3.workspace = true
 http-body-util.workspace = true
 # doc example
+# hyper.workspace = true
 http.workspace = true
-hyper.workspace = true
 
 [dev-dependencies]
 msquic.workspace = true

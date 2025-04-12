@@ -18,6 +18,5 @@ hyper-util.workspace = true
 tracing.workspace = true
 tower.workspace = true
 h3.workspace = true
-http.workspace = true
 hyper.workspace = true
 futures.workspace = true

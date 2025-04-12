@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use axum::{body::Bytes, routing::get};
-use http::Uri;
+use http::{Request, Uri};
 use tokio_util::sync::CancellationToken;
 
 async fn root() -> &'static str {
@@ -44,7 +44,7 @@ async fn axum_test() {
         );
         let channel = h3_util::client::H3Connection::new(cc, uri.clone());
         let mut client = h3_util::client::H3Client::new(channel);
-        let req = http::Request::builder()
+        let req = Request::builder()
             .method("GET")
             .uri(uri)
             .body(http_body_util::Empty::<Bytes>::new())
@@ -65,13 +65,13 @@ async fn h2o_client_test() {
     // let uri =  http::Uri::from_static("https://cloudflare-quic.com:443/");
     // This works:
     // let uri = http::Uri::from_static("https://quic.tech:8443/");
-    let uri = http::Uri::from_static("https://h2o.examp1e.net:443");
+    let uri = Uri::from_static("https://h2o.examp1e.net:443");
     test_client(uri).await;
 }
 
 #[tokio::test]
 async fn apache_client_test() {
-    let uri = http::Uri::from_static("https://docs.trafficserver.apache.org:443/");
+    let uri = Uri::from_static("https://docs.trafficserver.apache.org:443/");
     test_client(uri).await;
 }
 
@@ -88,7 +88,7 @@ async fn test_client(uri: Uri) {
         );
         let channel = h3_util::client::H3Connection::new(cc, uri.clone());
         let mut client = h3_util::client::H3Client::new(channel);
-        let req = http::Request::builder()
+        let req = Request::builder()
             .method("GET")
             .uri(uri)
             .body(http_body_util::Empty::<Bytes>::new())

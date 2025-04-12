@@ -2,8 +2,10 @@ use std::{pin::Pin, task::Poll};
 
 use crate::client::H3Connector;
 use futures::future::BoxFuture;
-use http::{Request, Response};
-use hyper::body::{Body, Bytes};
+use hyper::{
+    body::{Body, Bytes},
+    Request, Response,
+};
 
 use crate::client_body::H3IncomingClient;
 

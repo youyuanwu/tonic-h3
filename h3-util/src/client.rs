@@ -1,8 +1,8 @@
 use std::net::SocketAddr;
 
 use futures::future::BoxFuture;
-use http::{Request, Response, Uri};
 use hyper::body::{Body, Bytes};
+use hyper::{Request, Response, Uri};
 
 use crate::{client_body::H3IncomingClient, connection::CacheSendRequestService};
 
@@ -180,7 +180,7 @@ where
 
     pub async fn send(
         &mut self,
-        req: http::Request<B>,
+        req: Request<B>,
     ) -> Result<Response<H3IncomingClient<C::RS, Bytes>>, crate::Error> {
         use tower::Service;
         // wait for ready

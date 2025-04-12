@@ -508,6 +508,8 @@ pub fn run_s2n_client(
 /// Code to be used in rust docs
 #[cfg(test)]
 mod doc_example {
+    use http::Uri;
+
     /// type used in docs
     #[derive(Clone)]
     pub struct GreeterServer {}
@@ -560,7 +562,7 @@ mod doc_example {
 
     #[allow(dead_code)]
     async fn run_client(
-        uri: http::Uri,
+        uri: Uri,
         client_endpoint: h3_quinn::quinn::Endpoint,
     ) -> Result<(), tonic_h3::Error> {
         let cc = tonic_h3::quinn::H3QuinnConnector::new(

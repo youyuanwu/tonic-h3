@@ -18,8 +18,8 @@ msquic = ["h3-util/msquic"]
 
 [dependencies]
 futures.workspace = true
-http.workspace = true
 hyper.workspace = true
+http.workspace = true
 tonic.workspace = true
 tower.workspace = true
 axum-h3.workspace = true

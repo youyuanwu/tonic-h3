@@ -1,5 +1,5 @@
-use http::Uri;
 use hyper::body::Bytes;
+use hyper::Uri;
 
 use crate::client::H3Connector;
 

@@ -7,7 +7,7 @@ futures = "0.3"
 h3 = { version = "0.0.7" }
 h3-quinn = "0.0.8"
 http = "1"
-hyper = { version = "1" }
+hyper = { version = "1" , default-features = false}
 hyper-util = { version = "0.1", default-features = false, features = ["service"]}
 prost = "0.13"
 prost-build = "0.13"

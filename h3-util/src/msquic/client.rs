@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use http::Uri;
+use hyper::Uri;
 use msquic_h3::msquic::{Configuration, Registration};
 
 #[derive(Clone)]

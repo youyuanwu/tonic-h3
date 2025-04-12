@@ -2,8 +2,7 @@ use std::future::Future;
 
 use axum::body::Bytes;
 use h3_util::{server::H3Acceptor, server_body::H3IncomingServer};
-use http::{Request, Response};
-use hyper::body::Body;
+use hyper::{body::Body, Request, Response};
 
 /// Accept each connection from acceptor, then for each connection
 /// accept each request. Spawn a task to handle each request.
@@ -91,7 +90,7 @@ where
     }
 }
 
-pub async fn serve_request<AC, SVC, BD>(
+async fn serve_request<AC, SVC, BD>(
     request: Request<()>,
     stream: h3::server::RequestStream<
         <<AC as H3Acceptor>::CONN as h3::quic::OpenStreams<Bytes>>::BidiStream,
