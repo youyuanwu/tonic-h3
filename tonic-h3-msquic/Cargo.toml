@@ -5,6 +5,7 @@ edition = "2021"
 publish = false # msquic crate is not stable
 
 [dependencies]
+msquic.workspace = true
 msquic-h3.workspace = true
 tonic-h3.workspace = true
 tracing.workspace = true

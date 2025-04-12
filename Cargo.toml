@@ -28,7 +28,8 @@ trait-variant = "0.1"
 s2n-quic = { version = "1", default-features = false, features = ["provider-tls-rustls"]}
 s2n-quic-h3 = { path = "external/s2n-quic-h3", default-features = false}
 # This will use default of msquic and build from source. Need to wait for msquic crate publish
-msquic-h3 = { path = "submodules/msquic-h3" }
+msquic-h3 = { version = "0.0.1" }
+msquic = { version = "2.5.0-beta4", default-features = false, features = ["find"] }
 
 axum = {version = "0.8", default-features = false}
 http-body-util = "0.1"

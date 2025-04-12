@@ -246,7 +246,7 @@ pub mod msquic_util {
 
         let app_name = String::from("testapp_server");
         let reg = Registration::new(&RegistrationConfig::default().set_app_name(app_name)).unwrap();
-        let config = Configuration::new(&reg, &alpn, Some(&settings)).unwrap();
+        let config = Configuration::open(&reg, &alpn, Some(&settings)).unwrap();
 
         let cred_config = CredentialConfig::new()
             .set_credential_flags(CredentialFlags::NO_CERTIFICATE_VALIDATION)
@@ -455,7 +455,7 @@ pub fn make_test_msquic_client_parts() -> (Arc<msquic::Registration>, Arc<msquic
         .set_IdleTimeoutMs(1000)
         .set_PeerBidiStreamCount(10)
         .set_PeerUnidiStreamCount(10);
-    let client_config = msquic::Configuration::new(&reg, &[alpn], Some(&client_settings)).unwrap();
+    let client_config = msquic::Configuration::open(&reg, &[alpn], Some(&client_settings)).unwrap();
     {
         let cred_config = msquic::CredentialConfig::new_client()
             .set_credential_flags(msquic::CredentialFlags::NO_CERTIFICATE_VALIDATION);

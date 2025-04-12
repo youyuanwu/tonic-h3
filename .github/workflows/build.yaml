@@ -12,41 +12,24 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: submodule msquic-h3
-      run: git submodule update --init
+    - name: Install msquic from apt (linux)
+      if: runner.os == 'Linux'
+      run: |
+        wget -q https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/packages-microsoft-prod.deb;
+        sudo dpkg -i packages-microsoft-prod.deb;
+        sudo apt-get update;
+        sudo apt-get install libmsquic;
+        dpkg -L libmsquic;
 
-    - name: submodule msquic-h3
-      run: git submodule update --init
-      working-directory: submodules/msquic-h3
+    - name: Run Vcpkg (windows)
+      if: runner.os == 'Windows'
+      uses: lukka/run-vcpkg@v11
+      with:
+        vcpkgGitCommitId: 7354f1c8a0a276072e8d73d7eb6df6ca0ce8ccb1
 
-    - name: submodule msquic plus
-      run: git submodule update --init
-      working-directory: submodules/msquic-h3/submodules/msquic
-
-    - name: Prepare machine
-      working-directory: submodules/msquic-h3/submodules/msquic
-      run: scripts/prepare-machine.ps1 -Tls openssl -ForBuild -InstallTestCertificates
-      shell: pwsh
-
-
-    # - name: Install msquic from apt (linux)
-    #   if: runner.os == 'Linux'
-    #   run: |
-    #     wget -q https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/packages-microsoft-prod.deb;
-    #     sudo dpkg -i packages-microsoft-prod.deb;
-    #     sudo apt-get update;
-    #     sudo apt-get install libmsquic;
-    #     dpkg -L libmsquic;
-
-    # - name: Run Vcpkg (windows)
-    #   if: runner.os == 'Windows'
-    #   uses: lukka/run-vcpkg@v11
-    #   with:
-    #     vcpkgGitCommitId: 7354f1c8a0a276072e8d73d7eb6df6ca0ce8ccb1
-
-    # - name: vcpkg install msquic (windows)
-    #   if: runner.os == 'Windows'
-    #   run: vcpkg install msquic
+    - name: vcpkg install msquic (windows)
+      if: runner.os == 'Windows'
+      run: vcpkg install msquic
 
     - name: Install rust stable
       uses: dtolnay/rust-toolchain@stable
@@ -76,4 +59,4 @@ jobs:
       run: cargo build --all-targets
 
     - name: run all rust unittests
-      run: cargo test --all --exclude msquic --exclude msquic-h3
+      run: cargo test --all
