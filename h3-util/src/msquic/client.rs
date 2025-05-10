@@ -43,6 +43,7 @@ impl crate::client::H3Connector for H3MsQuicConnector {
         .await
         .map_err(crate::Error::from)?;
         tracing::debug!("client conn start");
+
         Ok(conn)
     }
 }
@@ -50,13 +51,14 @@ impl crate::client::H3Connector for H3MsQuicConnector {
 impl Drop for H3MsQuicConnector {
     fn drop(&mut self) {
         // config needs to drop before reg.
-        self.config.take();
+        std::mem::drop(self.config.take());
         // this drop maybe blocking since some connections are not finished.
         let reg = self.reg.take();
-        // HACK: drop in another thread.
-        // TODO: find another way. Or use tokio blocking task.
-        std::thread::spawn(move || {
-            std::mem::drop(reg);
-        });
+        if let Some(reg) = reg {
+            // reg should not be dropped here.
+            // user of the connector needs to keep a ref.
+            let c = Arc::strong_count(&reg);
+            assert_ne!(c, 1); // This may cause panic unwind but reg drop will be stuck.
+        }
     }
 }

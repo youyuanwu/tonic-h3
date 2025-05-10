@@ -147,7 +147,7 @@ pub fn run_test_s2n_server(
 
 // #[cfg(target_os = "windows")]
 pub mod msquic_util {
-    use std::net::SocketAddr;
+    use std::{net::SocketAddr, sync::Arc};
 
     use h3_util::msquic::server::H3MsQuicAcceptor;
     use http::Uri;
@@ -317,10 +317,16 @@ pub mod msquic_util {
             // Control stream drop will block the reg drop.
             // One can drop reg after server close as well.
             let drop_h = std::thread::spawn(move || {
+                // ensure this tread closes the handle.
+                // wait until reg has only 1 ref. reg should not be dropped by connector inner.
+                while Arc::strong_count(&reg) != 1 {
+                    std::thread::sleep(std::time::Duration::from_secs(1));
+                }
                 std::mem::drop(reg);
             });
             while !drop_h.is_finished() {
-                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                // We cannot drop the reg on tokio thread because it waits for connections close.
+                tokio::task::yield_now().await;
             }
         });
         (h, cc)
