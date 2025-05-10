@@ -64,7 +64,7 @@ where
                 }
             };
             loop {
-                let (request, stream) = match conn.accept().await {
+                let resolver = match conn.accept().await {
                     Ok(req) => match req {
                         Some(r) => r,
                         None => {
@@ -79,9 +79,14 @@ where
                 };
                 let h_svc_cp = h_svc_cp.clone();
                 tokio::spawn(async move {
-                    if let Err(e) =
-                        serve_request::<AC, _, _>(request, stream, h_svc_cp.clone()).await
-                    {
+                    let (req, stream) = match resolver.resolve_request().await {
+                        Ok(req) => req,
+                        Err(e) => {
+                            tracing::debug!("fail resolve request {e:#?}");
+                            return;
+                        }
+                    };
+                    if let Err(e) = serve_request::<AC, _, _>(req, stream, h_svc_cp.clone()).await {
                         tracing::debug!("server request failed: {}", e);
                     }
                 });

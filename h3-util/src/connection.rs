@@ -24,7 +24,7 @@ where
 {
     inner: SendRequest<CONN>,
     // Could use a bool to record the last error and reconnect.
-    h: tokio::task::JoinHandle<Result<(), crate::Error>>,
+    h: tokio::task::JoinHandle<h3::error::ConnectionError>,
 }
 
 impl<CONN, B> tower::Service<Request<B>> for SendRequest<CONN>
@@ -223,12 +223,7 @@ where
                 // TODO: cancellation??? or shutdown???
                 // run in background to maintain h3 connection until end.
                 // Drive the connection
-                let res = std::future::poll_fn(|cx| driver.poll_close(cx))
-                    .await
-                    .inspect_err(|e| {
-                        tracing::debug!("poll_close failed: {}", e);
-                    })
-                    .map_err(crate::Error::from);
+                let res = std::future::poll_fn(|cx| driver.poll_close(cx)).await;
                 tracing::debug!("h3 driver ended: {res:?}");
                 res
             });

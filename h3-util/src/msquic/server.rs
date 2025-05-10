@@ -29,8 +29,6 @@ impl H3Acceptor for H3MsQuicAcceptor {
 
     type RS = msquic_h3::H3RecvStream;
 
-    type OE = msquic_h3::H3Error;
-
     type BS = msquic_h3::H3Stream;
 
     async fn accept(&mut self) -> Result<Option<Self::CONN>, crate::Error> {

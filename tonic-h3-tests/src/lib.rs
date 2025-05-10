@@ -116,34 +116,34 @@ pub fn run_test_quinn_hello_server(
     (h, listen_addr)
 }
 
-pub fn run_test_s2n_server(
-    in_addr: SocketAddr,
-    token: CancellationToken,
-) -> (tokio::task::JoinHandle<()>, SocketAddr) {
-    let tls = s2n_quic::provider::tls::rustls::server::Server::from(make_rustls_server_config());
-    let server = s2n_quic::Server::builder()
-        .with_tls(tls)
-        .unwrap()
-        .with_io(in_addr)
-        .unwrap()
-        .start()
-        .unwrap();
-    let listen_addr = server.local_addr().unwrap();
-    let acceptor = tonic_h3_s2n::server::H3S2nAcceptor::new(server);
-    let h_sv = run_test_server(acceptor, token);
+// pub fn run_test_s2n_server(
+//     in_addr: SocketAddr,
+//     token: CancellationToken,
+// ) -> (tokio::task::JoinHandle<()>, SocketAddr) {
+//     let tls = s2n_quic::provider::tls::rustls::server::Server::from(make_rustls_server_config());
+//     let server = s2n_quic::Server::builder()
+//         .with_tls(tls)
+//         .unwrap()
+//         .with_io(in_addr)
+//         .unwrap()
+//         .start()
+//         .unwrap();
+//     let listen_addr = server.local_addr().unwrap();
+//     let acceptor = tonic_h3_s2n::server::H3S2nAcceptor::new(server);
+//     let h_sv = run_test_server(acceptor, token);
 
-    let h = tokio::spawn(async move {
-        h_sv.await
-            .expect("cannot join")
-            .expect("tonic server failed");
-        tracing::debug!("test server ended");
-        // s2n does not support close so wait a bit to let server release listening port.
-        // tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-        // This does not work.
-    });
+//     let h = tokio::spawn(async move {
+//         h_sv.await
+//             .expect("cannot join")
+//             .expect("tonic server failed");
+//         tracing::debug!("test server ended");
+//         // s2n does not support close so wait a bit to let server release listening port.
+//         // tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+//         // This does not work.
+//     });
 
-    (h, listen_addr)
-}
+//     (h, listen_addr)
+// }
 
 // #[cfg(target_os = "windows")]
 pub mod msquic_util {
@@ -437,17 +437,17 @@ pub fn make_test_quinn_client_endpoint() -> h3_quinn::quinn::Endpoint {
     client_endpoint
 }
 
-pub fn make_test_s2n_client_endpoint() -> s2n_quic::Client {
-    let tls_config = make_danger_rustls_client_config();
-    let tls = s2n_quic::provider::tls::rustls::Client::from(tls_config);
-    s2n_quic::Client::builder()
-        .with_tls(tls)
-        .unwrap()
-        .with_io("0.0.0.0:0")
-        .unwrap()
-        .start()
-        .unwrap()
-}
+// pub fn make_test_s2n_client_endpoint() -> s2n_quic::Client {
+//     let tls_config = make_danger_rustls_client_config();
+//     let tls = s2n_quic::provider::tls::rustls::Client::from(tls_config);
+//     s2n_quic::Client::builder()
+//         .with_tls(tls)
+//         .unwrap()
+//         .with_io("0.0.0.0:0")
+//         .unwrap()
+//         .start()
+//         .unwrap()
+// }
 
 pub fn make_test_msquic_client_parts() -> (Arc<msquic::Registration>, Arc<msquic::Configuration>) {
     let app_name = String::from("testapp_client");
@@ -490,26 +490,26 @@ pub fn run_quinn_client(
     (h, cc)
 }
 
-pub fn run_s2n_client(
-    uri: Uri,
-    token: CancellationToken,
-) -> (tokio::task::JoinHandle<()>, impl H3Connector) {
-    let mut s2n_ep = crate::make_test_s2n_client_endpoint();
+// pub fn run_s2n_client(
+//     uri: Uri,
+//     token: CancellationToken,
+// ) -> (tokio::task::JoinHandle<()>, impl H3Connector) {
+//     let mut s2n_ep = crate::make_test_s2n_client_endpoint();
 
-    let cc = tonic_h3_s2n::client::H3S2nConnector::new(
-        uri.clone(),
-        uri.host().unwrap().to_string(),
-        s2n_ep.clone(),
-    );
+//     let cc = tonic_h3_s2n::client::H3S2nConnector::new(
+//         uri.clone(),
+//         uri.host().unwrap().to_string(),
+//         s2n_ep.clone(),
+//     );
 
-    let h = tokio::spawn(async move {
-        token.cancelled().await;
-        // s2n does not support close.
-        tracing::debug!("client endpoint canancl");
-        s2n_ep.wait_idle().await.unwrap();
-    });
-    (h, cc)
-}
+//     let h = tokio::spawn(async move {
+//         token.cancelled().await;
+//         // s2n does not support close.
+//         tracing::debug!("client endpoint canancl");
+//         s2n_ep.wait_idle().await.unwrap();
+//     });
+//     (h, cc)
+// }
 
 /// Code to be used in rust docs
 #[cfg(test)]

@@ -25,7 +25,6 @@ impl H3Connector for H3QuinnConnector {
     type OS = h3_quinn::OpenStreams;
     type SS = h3_quinn::SendStream<Bytes>;
     type RS = h3_quinn::RecvStream;
-    type OE = h3_quinn::ConnectionError;
     type BS = h3_quinn::BidiStream<Bytes>;
     async fn connect(&self) -> Result<Self::CONN, crate::Error> {
         // connect to dns resolved addr.

@@ -30,7 +30,7 @@ where
 {
     type Data = hyper::body::Bytes;
 
-    type Error = h3::Error;
+    type Error = h3::error::StreamError;
 
     fn poll_frame(
         mut self: std::pin::Pin<&mut Self>,

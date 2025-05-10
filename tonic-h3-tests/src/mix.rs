@@ -8,10 +8,10 @@ async fn h3_quinn_test() {
     h3_test(crate::run_test_quinn_hello_server).await;
 }
 
-#[tokio::test]
-async fn h3_s2n_test() {
-    h3_test(crate::run_test_s2n_server).await;
-}
+// #[tokio::test]
+// async fn h3_s2n_test() {
+//     h3_test(crate::run_test_s2n_server).await;
+// }
 
 #[tokio::test]
 async fn msquic_test() {
@@ -70,19 +70,19 @@ async fn h3_test(
     client_endpoint.wait_idle().await;
 
     // test s2n client
-    let mut s2n_ep = crate::make_test_s2n_client_endpoint();
-    {
-        let channel = tonic_h3_s2n::client::new_s2n_h3_channel(uri.clone(), s2n_ep.clone());
-        let mut client = crate::greeter_client::GreeterClient::new(channel);
-        {
-            let request = tonic::Request::new(crate::HelloRequest {
-                name: "Tonic-S2n".into(),
-            });
-            let response = client.say_hello(request).await.unwrap();
-            tracing::debug!("RESPONSE={:?}", response);
-        }
-    }
-    s2n_ep.wait_idle().await.unwrap();
+    // let mut s2n_ep = crate::make_test_s2n_client_endpoint();
+    // {
+    //     let channel = tonic_h3_s2n::client::new_s2n_h3_channel(uri.clone(), s2n_ep.clone());
+    //     let mut client = crate::greeter_client::GreeterClient::new(channel);
+    //     {
+    //         let request = tonic::Request::new(crate::HelloRequest {
+    //             name: "Tonic-S2n".into(),
+    //         });
+    //         let response = client.say_hello(request).await.unwrap();
+    //         tracing::debug!("RESPONSE={:?}", response);
+    //     }
+    // }
+    // s2n_ep.wait_idle().await.unwrap();
 
     // test msquic client
     // reg should be the last thing to drop, otherwise it will wait for other handle to drop and deadlock.

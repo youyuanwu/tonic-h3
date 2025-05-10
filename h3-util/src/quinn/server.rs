@@ -66,7 +66,6 @@ impl H3Acceptor for H3QuinnAcceptor {
     type OS = h3_quinn::OpenStreams;
     type SS = h3_quinn::SendStream<Bytes>;
     type RS = h3_quinn::RecvStream;
-    type OE = h3_quinn::ConnectionError;
     type BS = h3_quinn::BidiStream<Bytes>;
 
     async fn accept(&mut self) -> Result<Option<Self::CONN>, crate::Error> {

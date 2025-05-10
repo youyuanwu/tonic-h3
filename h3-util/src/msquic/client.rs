@@ -29,8 +29,6 @@ impl crate::client::H3Connector for H3MsQuicConnector {
 
     type RS = msquic_h3::H3RecvStream;
 
-    type OE = msquic_h3::H3Error;
-
     type BS = msquic_h3::H3Stream;
 
     async fn connect(&self) -> Result<Self::CONN, crate::Error> {
