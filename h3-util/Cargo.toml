@@ -1,6 +1,6 @@
 [package]
 name = "h3-util"
-version = "0.0.2"
+version = "0.0.3"
 edition = "2021"
 authors = ["youyuanwu@outlook.com"]
 description = "h3 utilities for tonic-h3"
