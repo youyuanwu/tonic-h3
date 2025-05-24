@@ -20,8 +20,6 @@ impl H3Acceptor for H3S2nAcceptor {
 
     type RS = s2n_quic_h3::RecvStream;
 
-    type OE = s2n_quic_h3::ConnectionError;
-
     type BS = s2n_quic_h3::BidiStream<Bytes>;
 
     async fn accept(&mut self) -> Result<Option<Self::CONN>, tonic_h3::Error> {

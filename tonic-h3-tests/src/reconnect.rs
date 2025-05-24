@@ -10,12 +10,12 @@ async fn h3_quinn_test() {
     reconnect_test(crate::run_test_quinn_hello_server, crate::run_quinn_client).await;
 }
 
-// #[tokio::test]
-// #[serial_test::serial]
-// #[ignore = "s2n does not support acceptor close"]
-// async fn h3_s2n_test() {
-//     reconnect_test(crate::run_test_s2n_server, crate::run_s2n_client).await;
-// }
+#[tokio::test]
+#[serial_test::serial]
+#[ignore = "s2n does not support acceptor close"]
+async fn h3_s2n_test() {
+    reconnect_test(crate::run_test_s2n_server, crate::run_s2n_client).await;
+}
 
 #[tokio::test]
 #[serial_test::serial]

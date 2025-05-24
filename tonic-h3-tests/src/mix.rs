@@ -8,10 +8,10 @@ async fn h3_quinn_test() {
     h3_test(crate::run_test_quinn_hello_server).await;
 }
 
-// #[tokio::test]
-// async fn h3_s2n_test() {
-//     h3_test(crate::run_test_s2n_server).await;
-// }
+#[tokio::test]
+async fn h3_s2n_test() {
+    h3_test(crate::run_test_s2n_server).await;
+}
 
 #[tokio::test]
 async fn msquic_test() {
