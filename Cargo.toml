@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [ "tonic-h3", "tonic-h3-tests", "h3-util", "axum-h3"]
+package.edition = "2024"
 
 [workspace.dependencies]
 futures = "0.3"
@@ -12,7 +13,7 @@ hyper-util = { version = "0.1", default-features = false, features = ["service"]
 prost = "0.13"
 prost-build = "0.13"
 quinn = "0.11"
-rcgen = "0.13"
+rcgen = "0.14"
 rustls = { version = "0.23", default-features = false, features = ["std"] }
 serial_test = "3"
 tokio = { version = "1", features = ["full"] }
@@ -28,8 +29,8 @@ trait-variant = "0.1"
 s2n-quic = { version = "1", default-features = false, features = ["provider-tls-rustls", "provider-address-token-default"]}
 s2n-quic-h3 = { path = "external/s2n-quic-h3", default-features = false}
 # This will use default of msquic and build from source. Need to wait for msquic crate publish
-msquic-h3 = { version = "0.0.2" }
-msquic = { version = "2.5.0-beta4", default-features = false, features = ["find"] }
+msquic-h3 = { version = "0.0.3" }
+msquic = { version = "2.5.1-beta", default-features = false, features = ["find"] }
 
 axum = {version = "0.8", default-features = false}
 http-body-util = "0.1"
@@ -37,5 +38,5 @@ http-body-util = "0.1"
 # crates in this workspace
 tonic-h3 = { path = "tonic-h3" }
 tonic-h3-s2n = { path = "tonic-h3-s2n" }
-h3-util = { version = "0.0.3", path = "h3-util" , default-features = false }
-axum-h3 = { version = "0.0.3", path = "axum-h3" }
+h3-util = { version = "0.0.4", path = "h3-util" , default-features = false }
+axum-h3 = { version = "0.0.4", path = "axum-h3" }

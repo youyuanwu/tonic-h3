@@ -40,6 +40,7 @@ async fn select_conn2(
     }
 }
 
+#[allow(clippy::large_enum_variant)]
 enum SelectOutputConn2 {
     NewIncoming(h3_quinn::quinn::Incoming),
     NewConn(h3_quinn::Connection),

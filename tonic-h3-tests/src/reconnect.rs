@@ -43,7 +43,7 @@ async fn reconnect_test<T: H3Connector>(
 
     tracing::debug!("connecting quic client.");
 
-    let uri: Uri = format!("https://{}", listen_addr).parse().unwrap();
+    let uri: Uri = format!("https://{listen_addr}").parse().unwrap();
 
     let client_token = CancellationToken::new();
     let (h_cli, cc) = run_client(uri.clone(), client_token.clone());

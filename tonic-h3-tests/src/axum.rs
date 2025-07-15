@@ -31,7 +31,7 @@ async fn axum_test() {
 
     tokio::time::sleep(Duration::from_secs(1)).await;
 
-    let uri: Uri = format!("https://{}", listen_addr).parse().unwrap();
+    let uri: Uri = format!("https://{listen_addr}").parse().unwrap();
 
     let client_endpoint = crate::make_test_quinn_client_endpoint();
     // quinn client test

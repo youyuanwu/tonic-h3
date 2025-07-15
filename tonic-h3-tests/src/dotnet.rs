@@ -62,7 +62,7 @@ fn run_dotnet_server(root_dir: &Path) -> std::process::Child {
 
 fn get_root_dir() -> PathBuf {
     let curr_dir = std::env::current_dir().unwrap();
-    println!("{:?}", curr_dir);
+    println!("{curr_dir:?}");
     let root_dir = curr_dir.parent().unwrap();
     root_dir.to_path_buf()
 }
@@ -95,7 +95,7 @@ async fn rust_server() {
 
     let server_out = h_svr.wait_with_output().unwrap();
     // server kill may exit with code 1.
-    println!("server output: {:?}", server_out);
+    println!("server output: {server_out:?}");
 }
 
 #[tokio::test]
@@ -128,5 +128,5 @@ async fn dotnet_server() {
 
     let server_out = h_svr.wait_with_output().unwrap();
     // server kill may exit with code 1.
-    println!("server output: {:?}", server_out);
+    println!("server output: {server_out:?}");
 }

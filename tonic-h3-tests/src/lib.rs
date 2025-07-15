@@ -32,15 +32,15 @@ impl crate::greeter_server::Greeter for HelloWorldService {
         let name = req.into_inner().name;
         tracing::debug!("say_hello: {}", name);
         Ok(tonic::Response::new(HelloReply {
-            message: format!("hello {}", name),
+            message: format!("hello {name}"),
         }))
     }
 }
 
 fn make_test_cert(subject_alt_names: Vec<String>) -> (rcgen::Certificate, rcgen::KeyPair) {
-    use rcgen::{generate_simple_self_signed, CertifiedKey};
-    let CertifiedKey { cert, key_pair } = generate_simple_self_signed(subject_alt_names).unwrap();
-    (cert, key_pair)
+    use rcgen::generate_simple_self_signed;
+    let key_pair = generate_simple_self_signed(subject_alt_names).unwrap();
+    (key_pair.cert, key_pair.signing_key)
 }
 
 pub fn make_test_cert_rustls(
@@ -152,11 +152,11 @@ pub mod msquic_util {
     use h3_util::msquic::server::H3MsQuicAcceptor;
     use http::Uri;
     use msquic_h3::{
+        Listener,
         msquic::{
             self, BufferRef, Configuration, Credential, CredentialConfig, CredentialFlags,
             Registration, RegistrationConfig, Settings,
         },
-        Listener,
     };
     use tokio_util::sync::CancellationToken;
 
@@ -178,14 +178,10 @@ pub mod msquic_util {
                     s.pop();
                 }
             };
-            if s.is_empty() {
-                None
-            } else {
-                Some(s)
-            }
+            if s.is_empty() { None } else { Some(s) }
         }
         fn gen_cert() {
-            let gen_cert_cmd ="New-SelfSignedCertificate -DnsName $env:computername,localhost -FriendlyName MsQuic-Test -KeyUsageProperty Sign -KeyUsage DigitalSignature -CertStoreLocation cert:\\CurrentUser\\My -HashAlgorithm SHA256 -Provider \"Microsoft Software Key Storage Provider\" -KeyExportPolicy Exportable";
+            let gen_cert_cmd = "New-SelfSignedCertificate -DnsName $env:computername,localhost -FriendlyName MsQuic-Test -KeyUsageProperty Sign -KeyUsage DigitalSignature -CertStoreLocation cert:\\CurrentUser\\My -HashAlgorithm SHA256 -Provider \"Microsoft Software Key Storage Provider\" -KeyExportPolicy Exportable";
             let output = std::process::Command::new("pwsh.exe")
                 .args(["-Command", gen_cert_cmd])
                 .stdout(std::process::Stdio::inherit())
@@ -267,7 +263,7 @@ pub mod msquic_util {
                     {
                         std::thread::yield_now();
                     } else {
-                        panic!("cannot open server {}", e)
+                        panic!("cannot open server {e}")
                     }
                 }
             }
@@ -335,10 +331,10 @@ pub mod msquic_util {
 
 // copied from https://github.com/rustls/rustls/blob/f98484bdbd57a57bafdd459db594e21c531f1b4a/examples/src/bin/tlsclient-mio.rs#L331
 mod danger {
-    use rustls::client::danger::HandshakeSignatureValid;
-    use rustls::crypto::{verify_tls12_signature, verify_tls13_signature, CryptoProvider};
-    use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
     use rustls::DigitallySignedStruct;
+    use rustls::client::danger::HandshakeSignatureValid;
+    use rustls::crypto::{CryptoProvider, verify_tls12_signature, verify_tls13_signature};
+    use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
 
     #[derive(Debug)]
     pub struct NoCertificateVerification(CryptoProvider);
@@ -582,7 +578,7 @@ mod doc_example {
             name: "Tonic".into(),
         });
         let response = client.say_hello(request).await?;
-        println!("RESPONSE={:?}", response);
+        println!("RESPONSE={response:?}");
         Ok(())
     }
 }

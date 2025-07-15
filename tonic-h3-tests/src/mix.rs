@@ -35,7 +35,7 @@ async fn h3_test(
 
     tracing::debug!("connecting quic client.");
 
-    let uri: Uri = format!("https://{}", listen_addr).parse().unwrap();
+    let uri: Uri = format!("https://{listen_addr}").parse().unwrap();
 
     let client_endpoint = crate::make_test_quinn_client_endpoint();
     // quinn client test

@@ -3,8 +3,8 @@ use std::{pin::Pin, task::Poll};
 use crate::client::H3Connector;
 use futures::future::BoxFuture;
 use hyper::{
-    body::{Body, Bytes},
     Request, Response,
+    body::{Body, Bytes},
 };
 
 use crate::client_body::H3IncomingClient;
