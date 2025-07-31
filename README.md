@@ -20,6 +20,12 @@ Compatibility with grpc-dotnet with http3 is tested [here](./dotnet/).
 * [h3-util](./h3-util/) Http3 server and client utilities used by `axum-h3` and `tonic-h3`.
 * Other quic wrapping crates to support alternative quic implementations.
 
+## Get started
+Add deps to your cargo.toml
+```toml
+tonic-h3 = { version="*" , default-features = false, features = ["quinn"] }
+```
+
 ## tonic examples
 Server:
 ```rs
