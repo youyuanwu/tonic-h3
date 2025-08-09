@@ -15,6 +15,7 @@ tokio.workspace = true
 tokio-util.workspace = true
 tonic-h3.workspace = true
 tonic.workspace = true
+tonic-prost.workspace = true
 tracing-subscriber.workspace = true
 tracing.workspace = true
 s2n-quic.workspace = true
@@ -24,15 +25,13 @@ h3-util.workspace = true
 axum.workspace = true
 axum-h3.workspace = true
 http-body-util.workspace = true
-# doc example
-# hyper.workspace = true
 http.workspace = true
 
 [dev-dependencies]
 msquic.workspace = true
 
 [build-dependencies]
-tonic-build.workspace = true
+tonic-prost-build.workspace = true
 
 [package.metadata.rust-analyzer]
 cargo.loadOutDirsFromCheck = true

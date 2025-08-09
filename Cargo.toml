@@ -10,16 +10,17 @@ h3-quinn = "0.0.10"
 http = "1"
 hyper = { version = "1" , default-features = false}
 hyper-util = { version = "0.1", default-features = false, features = ["service"]}
-prost = "0.13"
-prost-build = "0.13"
+prost = "0.14"
+prost-build = "0.14"
 quinn = "0.11"
 rcgen = "0.14"
 rustls = { version = "0.23", default-features = false, features = ["std"] }
 serial_test = "3"
 tokio = { version = "1", features = ["full"] }
 tokio-util = "0.7"
-tonic = { version = "0.13", default-features = false, features = ["router", "codegen", "transport", "prost"]}
-tonic-build = "0.13"
+tonic = { version = "0.14", default-features = false, features = ["router", "codegen", "transport"] }
+tonic-prost-build = "0.14"
+tonic-prost = "0.14"
 tower = { version = "0.5", default-features = false, features = ["util"] }
 tracing = { version = "0.1", features = ["log"] }
 tracing-subscriber = { version = "0.3", default-features = false, features = [
