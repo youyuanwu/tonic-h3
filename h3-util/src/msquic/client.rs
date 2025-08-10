@@ -32,8 +32,9 @@ impl crate::client::H3Connector for H3MsQuicConnector {
     type BS = msquic_h3::H3Stream;
 
     async fn connect(&self) -> Result<Self::CONN, crate::Error> {
+        // Maybe conn should hold a arc to reg. so that we can track how many connections are using it.
         let conn = msquic_h3::Connection::connect(
-            self.reg.as_ref().unwrap(),
+            self.reg.as_ref().unwrap().clone(),
             self.config.as_ref().unwrap(),
             self.uri.host().unwrap(),
             self.uri.port_u16().unwrap(),

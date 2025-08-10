@@ -1011,9 +1011,9 @@ dependencies = [
 
 [[package]]
 name = "msquic-h3"
-version = "0.0.3"
+version = "0.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c949b9adab75e2c9e3bf2bde84a13db1ec244e3194dc30a41a739b6d2ef6c342"
+checksum = "bddcd786e4897331bf98974d5b4a16429ea7b2594b736b4aa0da6993b5275fd0"
 dependencies = [
  "bytes",
  "futures",

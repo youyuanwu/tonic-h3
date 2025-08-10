@@ -309,21 +309,19 @@ pub mod msquic_util {
 
         let h = tokio::spawn(async move {
             token.cancelled().await;
-            // reg drop will stall the current tokio thread.
-            // Control stream drop will block the reg drop.
-            // One can drop reg after server close as well.
-            let drop_h = std::thread::spawn(move || {
-                // ensure this tread closes the handle.
-                // wait until reg has only 1 ref. reg should not be dropped by connector inner.
-                while Arc::strong_count(&reg) != 1 {
-                    std::thread::sleep(std::time::Duration::from_secs(1));
-                }
-                std::mem::drop(reg);
-            });
-            while !drop_h.is_finished() {
-                // We cannot drop the reg on tokio thread because it waits for connections close.
-                tokio::task::yield_now().await;
+            tracing::debug!("client cancel received. Shutting down registration.");
+            // signify to close all connections on this registration.
+            reg.shutdown();
+            tracing::debug!("client registration shutdown completed.");
+
+            // This waits for all connections to close.
+            // This works because each connection holds a reference to the registration.
+            while Arc::strong_count(&reg) != 1 {
+                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
             }
+            // If connections are not yet closed this will stuck.
+            std::mem::drop(reg);
+            tracing::debug!("client registration dropped.");
         });
         (h, cc)
     }

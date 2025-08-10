@@ -83,9 +83,10 @@ async fn reconnect_test<T: H3Connector>(
 
     // close client
     client_token.cancel();
-    std::mem::drop(client);
+    // drop client so that reg can be cleaned up in task while loop
+    drop(client);
     h_cli.await.unwrap();
-
+    tracing::debug!("client finished.");
     // close server
     token2.cancel();
     h_svr2.await.unwrap();
