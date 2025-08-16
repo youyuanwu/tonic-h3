@@ -39,6 +39,8 @@ jobs:
 
     - uses: taiki-e/install-action@protoc
 
+    - uses: taiki-e/install-action@cargo-llvm-cov
+
     - name: Run cargo check
       run: cargo check
 
