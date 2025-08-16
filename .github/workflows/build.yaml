@@ -39,6 +39,8 @@ jobs:
 
     - uses: taiki-e/install-action@protoc
 
+    - uses: taiki-e/install-action@cargo-llvm-cov
+
     - name: Run cargo check
       run: cargo check
 
@@ -60,3 +62,9 @@ jobs:
 
     - name: run all rust unittests
       run: cargo test --all
+
+    - name: Run llvm-cov
+      run: cargo llvm-cov --codecov --output-path codecov.json --ignore-filename-regex tonic-h3-tests.*
+
+    - name: Show cov summary
+      run: cargo llvm-cov report --summary-only --ignore-filename-regex tonic-h3-tests.*

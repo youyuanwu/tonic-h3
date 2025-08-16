@@ -4,7 +4,8 @@ use futures::future::BoxFuture;
 use hyper::body::{Body, Bytes};
 use hyper::{Request, Response, Uri};
 
-use crate::{client_body::H3IncomingClient, connection::CacheSendRequestService};
+use crate::client_body::H3IncomingClient;
+use crate::client_conn;
 
 pub trait H3Connector: Send + 'static + Clone {
     type CONN: h3::quic::Connection<
@@ -66,15 +67,9 @@ where
     B::Error: Into<crate::Error> + Send,
 {
     pub fn new(connector: C, uri: Uri) -> Self {
-        let cache_mk_svc = CacheSendRequestService::new(connector);
-
-        let client_svc = ClientService {
-            inner: cache_mk_svc,
-            uri,
-        };
-
+        let sender = client_conn::RequestSender::new(connector, uri);
         Self {
-            inner: tower::util::BoxService::new(client_svc),
+            inner: tower::util::BoxService::new(sender),
         }
     }
 }
@@ -102,57 +97,10 @@ where
     }
 }
 
-/// Client service that includes cache and reconnection.
-pub struct ClientService<C>
-where
-    C: H3Connector,
-{
-    inner: CacheSendRequestService<C>,
-    uri: Uri,
-}
-
-impl<C, B> tower::Service<Request<B>> for ClientService<C>
-where
-    C: H3Connector,
-    B: Body + Send + 'static + Unpin,
-    B::Data: Send,
-    B::Error: Into<crate::Error> + Send,
-{
-    type Response = Response<H3IncomingClient<C::RS, Bytes>>;
-
-    type Error = crate::Error;
-
-    type Future = BoxFuture<'static, Result<Self::Response, Self::Error>>;
-
-    fn poll_ready(
-        &mut self,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Result<(), Self::Error>> {
-        self.inner.poll_ready(cx)
-    }
-
-    fn call(&mut self, mut req: Request<B>) -> Self::Future {
-        let uri = &self.uri;
-        // fix up uri with full uri.
-        let uri2 = Uri::builder()
-            .scheme(uri.scheme().unwrap().clone())
-            .authority(uri.authority().unwrap().clone())
-            .path_and_query(req.uri().path_and_query().unwrap().clone())
-            .build()
-            .unwrap();
-        *req.uri_mut() = uri2;
-
-        let fut = self.inner.call(());
-        Box::pin(async move {
-            let mut send_request = fut.await?;
-            send_request.call(req).await
-        })
-    }
-}
-
 /// http3 client.
 /// Note the client does not do dns resolve but blindly sends requests
 /// using connections created by the connector.
+/// Used for sending HTTP request directly.
 pub struct H3Client<C, B>
 where
     C: H3Connector,
