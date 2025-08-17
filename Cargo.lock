@@ -634,6 +634,7 @@ dependencies = [
  "h3",
  "h3-quinn",
  "hyper",
+ "hyper-util",
  "msquic-h3",
  "tokio",
  "tower",

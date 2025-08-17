@@ -1,8 +1,9 @@
-use crate::client::H3Connector;
+use crate::{client::H3Connector, executor::SharedExec};
 use futures::{FutureExt, future::BoxFuture};
 use hyper::{
     Request, Response, Uri,
     body::{Body, Bytes},
+    rt::Executor,
 };
 
 use crate::client_body::H3IncomingClient;
@@ -10,6 +11,7 @@ use crate::client_body::H3IncomingClient;
 pub async fn send_request_inner<CONN, B>(
     req: hyper::Request<B>,
     mut send_request: h3::client::SendRequest<CONN::OS, Bytes>,
+    executor: &SharedExec,
 ) -> Result<Response<H3IncomingClient<CONN::RS, Bytes>>, crate::Error>
 where
     CONN: H3Connector,
@@ -27,9 +29,9 @@ where
 
     let (mut w, mut r) = stream.split();
     // send body in backgound
-    tokio::spawn(async move {
+    executor.execute(async move {
         // TODO: cancellation?
-        crate::client_body::send_h3_client_body::<CONN::BS, _>(&mut w, body).await
+        let _ = crate::client_body::send_h3_client_body::<CONN::BS, _>(&mut w, body).await;
     });
 
     // return resp.
@@ -65,6 +67,7 @@ pub struct RequestSender<CONN: H3Connector> {
         >,
     >,
     uri: Uri,
+    executor: SharedExec,
 }
 
 impl<CONN> RequestSender<CONN>
@@ -78,6 +81,7 @@ where
             driver_rx: None,
             make_send_request_fut: None,
             uri,
+            executor: SharedExec::tokio(), // TODO: expose the executor for user.
         }
     }
 }
@@ -128,12 +132,12 @@ where
         if self.make_send_request_fut.is_none() {
             // start the driver in the background
             let conn = self.conn.clone();
-
+            let executor = self.executor.clone();
             self.make_send_request_fut = Some(Box::pin(async move {
                 let conn = conn.connect().await?;
                 let (mut driver, send_request) = h3::client::new(conn).await?;
                 let (tx, rx) = tokio::sync::oneshot::channel();
-                tokio::spawn(async move {
+                executor.execute(async move {
                     let res = std::future::poll_fn(|cx| driver.poll_close(cx)).await;
                     tracing::debug!("h3 driver ended: {res:?}");
                     let _ = tx.send(());
@@ -170,8 +174,9 @@ where
             .build()
             .unwrap();
         *req.uri_mut() = uri2;
+        let executor = self.executor.clone();
         Box::pin(async move {
-            crate::client_conn::send_request_inner::<CONN, B>(req, send_request).await
+            crate::client_conn::send_request_inner::<CONN, B>(req, send_request, &executor).await
         })
     }
 }

@@ -64,7 +64,12 @@ jobs:
       run: cargo test --all
 
     - name: Run llvm-cov
-      run: cargo llvm-cov --codecov --output-path codecov.json --ignore-filename-regex tonic-h3-tests.*
+      run: cargo llvm-cov --codecov --output-path codecov.json --ignore-filename-regex "tonic-h3-tests.*|external.*"
 
     - name: Show cov summary
-      run: cargo llvm-cov report --summary-only --ignore-filename-regex tonic-h3-tests.*
+      run: cargo llvm-cov report --summary-only --ignore-filename-regex "tonic-h3-tests.*|external.*"
+
+    - name: Upload coverage reports to Codecov
+      uses: codecov/codecov-action@v5
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
