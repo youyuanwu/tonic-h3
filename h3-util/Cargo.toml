@@ -22,6 +22,7 @@ tokio.workspace = true
 tracing.workspace = true
 futures.workspace = true
 tower.workspace = true
+hyper-util.workspace = true
 
 h3-quinn = { workspace = true, optional = true }
 msquic-h3 = { workspace = true, optional = true }

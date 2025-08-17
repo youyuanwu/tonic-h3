@@ -3,6 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://raw.githubusercontent.com/youyuanwu/tonic-h3/main/LICENSE)
 [![Crates.io](https://img.shields.io/crates/v/tonic-h3)](https://crates.io/crates/tonic-h3)
 [![Documentation](https://docs.rs/tonic-h3/badge.svg)](https://docs.rs/tonic-h3)
+[![codecov](https://codecov.io/github/youyuanwu/tonic-h3/graph/badge.svg?token=JUVKWRHNCO)](https://codecov.io/github/youyuanwu/tonic-h3)
 
 Experimental implementation of running [tonic](https://github.com/hyperium/tonic) grpc on [h3](https://github.com/hyperium/h3), following the proposal: [G2-http3-protocol](https://github.com/grpc/proposal/blob/master/G2-http3-protocol.md)
 
