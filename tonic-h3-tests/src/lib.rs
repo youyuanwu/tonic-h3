@@ -22,6 +22,8 @@ mod mix;
 #[cfg(test)]
 mod quiche;
 
+pub mod cert_gen;
+
 tonic::include_proto!("helloworld"); // The string specified here must match the proto package name
 
 #[derive(Default)]
@@ -41,19 +43,13 @@ impl crate::greeter_server::Greeter for HelloWorldService {
     }
 }
 
-fn make_test_cert(subject_alt_names: Vec<String>) -> (rcgen::Certificate, rcgen::KeyPair) {
-    use rcgen::generate_simple_self_signed;
-    let key_pair = generate_simple_self_signed(subject_alt_names).unwrap();
-    (key_pair.cert, key_pair.signing_key)
-}
-
 pub fn make_test_cert_rustls(
     subject_alt_names: Vec<String>,
 ) -> (
     rustls::pki_types::CertificateDer<'static>,
     rustls::pki_types::PrivateKeyDer<'static>,
 ) {
-    let (cert, key_pair) = make_test_cert(subject_alt_names);
+    let (cert, key_pair) = cert_gen::make_test_cert(subject_alt_names);
     let cert = rustls::pki_types::CertificateDer::from(cert);
     use rustls::pki_types::pem::PemObject;
     let key = rustls::pki_types::PrivateKeyDer::from_pem(
