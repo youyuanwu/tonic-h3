@@ -1,8 +1,9 @@
 use std::{net::SocketAddr, sync::Arc};
 
-use h3_util::{client::H3Connector, server::H3Acceptor};
+use h3_util::msquic::msquic_h3::msquic;
+use h3_util::quinn::h3_quinn::quinn::{self};
+use h3_util::{client::H3Connector, s2n::s2n_quic, server::H3Acceptor};
 use http::Uri;
-use msquic_h3::msquic;
 use tokio_util::sync::CancellationToken;
 
 #[cfg(test)]
@@ -17,6 +18,11 @@ mod reconnect;
 
 #[cfg(test)]
 mod mix;
+
+#[cfg(test)]
+mod quiche;
+
+pub mod cert_gen;
 
 tonic::include_proto!("helloworld"); // The string specified here must match the proto package name
 
@@ -37,19 +43,13 @@ impl crate::greeter_server::Greeter for HelloWorldService {
     }
 }
 
-fn make_test_cert(subject_alt_names: Vec<String>) -> (rcgen::Certificate, rcgen::KeyPair) {
-    use rcgen::generate_simple_self_signed;
-    let key_pair = generate_simple_self_signed(subject_alt_names).unwrap();
-    (key_pair.cert, key_pair.signing_key)
-}
-
 pub fn make_test_cert_rustls(
     subject_alt_names: Vec<String>,
 ) -> (
     rustls::pki_types::CertificateDer<'static>,
     rustls::pki_types::PrivateKeyDer<'static>,
 ) {
-    let (cert, key_pair) = make_test_cert(subject_alt_names);
+    let (cert, key_pair) = cert_gen::make_test_cert(subject_alt_names);
     let cert = rustls::pki_types::CertificateDer::from(cert);
     use rustls::pki_types::pem::PemObject;
     let key = rustls::pki_types::PrivateKeyDer::from_pem(
@@ -120,8 +120,10 @@ pub fn run_test_s2n_server(
     in_addr: SocketAddr,
     token: CancellationToken,
 ) -> (tokio::task::JoinHandle<()>, SocketAddr) {
-    let tls = s2n_quic::provider::tls::rustls::server::Server::from(make_rustls_server_config());
-    let server = s2n_quic::Server::builder()
+    let tls = h3_util::s2n::s2n_quic::provider::tls::rustls::server::Server::from(
+        make_rustls_server_config(),
+    );
+    let server = h3_util::s2n::s2n_quic::Server::builder()
         .with_tls(tls)
         .unwrap()
         .with_io(in_addr)
@@ -149,21 +151,21 @@ pub fn run_test_s2n_server(
 pub mod msquic_util {
     use std::{net::SocketAddr, sync::Arc};
 
-    use h3_util::msquic::server::H3MsQuicAcceptor;
-    use http::Uri;
-    use msquic_h3::{
+    use h3_util::msquic::msquic_h3::{
         Listener,
         msquic::{
             self, BufferRef, Configuration, Credential, CredentialConfig, CredentialFlags,
             Registration, RegistrationConfig, Settings,
         },
     };
+    use h3_util::msquic::server::H3MsQuicAcceptor;
+    use http::Uri;
     use tokio_util::sync::CancellationToken;
 
     /// Use pwsh to get the test cert hash
     #[cfg(target_os = "windows")]
     pub fn get_test_cred() -> Credential {
-        use msquic_h3::msquic::CertificateHash;
+        use h3_util::msquic::msquic_h3::msquic::CertificateHash;
         fn get_hash() -> Option<String> {
             let get_cert_cmd = "Get-ChildItem Cert:\\CurrentUser\\My | Where-Object -Property FriendlyName -EQ -Value MsQuic-Test | Select-Object -ExpandProperty Thumbprint -First 1";
             let output = std::process::Command::new("pwsh.exe")
@@ -205,7 +207,7 @@ pub mod msquic_util {
     pub fn get_test_cred() -> Credential {
         use std::io::Write;
 
-        use msquic_h3::msquic::CertificateFile;
+        use msquic::CertificateFile;
 
         let cert_dir = std::env::temp_dir().join("tonic_h3_test");
         let key = "key.pem";
@@ -259,7 +261,7 @@ pub mod msquic_util {
                 Err(e) => {
                     if i < max_retry
                         && e.try_as_status_code().unwrap()
-                            == msquic_h3::msquic::StatusCode::QUIC_STATUS_ADDRESS_IN_USE
+                            == msquic::StatusCode::QUIC_STATUS_ADDRESS_IN_USE
                     {
                         std::thread::yield_now();
                     } else {
@@ -421,9 +423,9 @@ pub fn make_rustls_server_config() -> rustls::ServerConfig {
     tls_config
 }
 
-pub fn make_test_quinn_client_endpoint() -> h3_quinn::quinn::Endpoint {
+pub fn make_test_quinn_client_endpoint() -> quinn::Endpoint {
     let tls_config = make_danger_rustls_client_config();
-    let mut client_endpoint = h3_quinn::quinn::Endpoint::client("[::]:0".parse().unwrap()).unwrap();
+    let mut client_endpoint = quinn::Endpoint::client("[::]:0".parse().unwrap()).unwrap();
     let client_config = quinn::ClientConfig::new(Arc::new(
         quinn::crypto::rustls::QuicClientConfig::try_from(tls_config).unwrap(),
     ));
@@ -547,7 +549,7 @@ mod doc_example {
     pub struct HelloWorldService {}
 
     #[allow(dead_code)]
-    async fn run_server(endpoint: h3_quinn::quinn::Endpoint) -> Result<(), tonic_h3::Error> {
+    async fn run_server(endpoint: quinn::Endpoint) -> Result<(), tonic_h3::Error> {
         let router = tonic::service::Routes::builder()
             .add_service(GreeterServer::new(HelloWorldService {}))
             .clone()
@@ -561,10 +563,7 @@ mod doc_example {
     }
 
     #[allow(dead_code)]
-    async fn run_client(
-        uri: Uri,
-        client_endpoint: h3_quinn::quinn::Endpoint,
-    ) -> Result<(), tonic_h3::Error> {
+    async fn run_client(uri: Uri, client_endpoint: quinn::Endpoint) -> Result<(), tonic_h3::Error> {
         let cc = tonic_h3::quinn::H3QuinnConnector::new(
             uri.clone(),
             "localhost".to_string(),
