@@ -12,9 +12,10 @@ keywords = ["gRPC", "h3"]
 readme = "../README.md"
 
 [features]
-default = ["quinn", "msquic"]
+default = []
 quinn = ["h3-util/quinn"]
 msquic = ["h3-util/msquic"]
+s2n-quic = ["h3-util/s2n-quic"]
 
 [dependencies]
 futures.workspace = true

@@ -1,5 +1,5 @@
-use http::Uri;
 use hyper::body::Bytes;
+use hyper::http::Uri;
 
 #[derive(Clone)]
 pub struct H3S2nConnector {
@@ -18,21 +18,21 @@ impl H3S2nConnector {
     }
 }
 
-impl h3_util::client::H3Connector for H3S2nConnector {
-    type CONN = s2n_quic_h3::Connection;
+impl crate::client::H3Connector for H3S2nConnector {
+    type CONN = crate::s2n_quic_h3::Connection;
 
-    type OS = s2n_quic_h3::OpenStreams;
+    type OS = crate::s2n_quic_h3::OpenStreams;
 
-    type SS = s2n_quic_h3::SendStream<Bytes>;
+    type SS = crate::s2n_quic_h3::SendStream<Bytes>;
 
-    type RS = s2n_quic_h3::RecvStream;
+    type RS = crate::s2n_quic_h3::RecvStream;
 
-    type BS = s2n_quic_h3::BidiStream<Bytes>;
+    type BS = crate::s2n_quic_h3::BidiStream<Bytes>;
 
-    async fn connect(&self) -> Result<Self::CONN, tonic_h3::Error> {
+    async fn connect(&self) -> Result<Self::CONN, crate::Error> {
         // connect to dns resolved addr.
         let mut conn_err = std::io::Error::from(std::io::ErrorKind::AddrNotAvailable).into();
-        let addrs = h3_util::client::dns_resolve(&self.uri).await?;
+        let addrs = crate::client::dns_resolve(&self.uri).await?;
         tracing::debug!("connecting to server: {:?}", addrs);
         for addr in addrs {
             let connect =
@@ -41,11 +41,11 @@ impl h3_util::client::H3Connector for H3S2nConnector {
                 .ep
                 .connect(connect)
                 .await
-                .map_err(Into::<tonic_h3::Error>::into)
+                .map_err(Into::<crate::Error>::into)
             {
                 Ok(mut conn) => {
                     conn.keep_alive(true)?;
-                    return Ok(s2n_quic_h3::Connection::new(conn));
+                    return Ok(crate::s2n_quic_h3::Connection::new(conn));
                 }
                 Err(e) => conn_err = e,
             }
@@ -54,7 +54,7 @@ impl h3_util::client::H3Connector for H3S2nConnector {
     }
 }
 
-pub fn new_s2n_h3_channel(uri: Uri, ep: s2n_quic::Client) -> tonic_h3::H3Channel<H3S2nConnector> {
-    let connector = H3S2nConnector::new(uri.clone(), "localhost".to_string(), ep);
-    tonic_h3::H3Channel::new(connector, uri)
-}
+// pub fn new_s2n_h3_channel(uri: Uri, ep: s2n_quic::Client) -> tonic_h3::H3Channel<H3S2nConnector> {
+//     let connector = H3S2nConnector::new(uri.clone(), "localhost".to_string(), ep);
+//     tonic_h3::H3Channel::new(connector, uri)
+// }

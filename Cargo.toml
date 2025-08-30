@@ -27,14 +27,14 @@ tracing-subscriber = { version = "0.3", default-features = false, features = [
   "fmt",
 ] }
 trait-variant = "0.1"
-s2n-quic = { version = "1", default-features = false, features = ["provider-tls-rustls", "provider-address-token-default"]}
-s2n-quic-h3 = { path = "external/s2n-quic-h3", default-features = false}
+s2n-quic = { version = "1", default-features = false, features = ["provider-tls-rustls", "provider-address-token-default"] }
 # This will use default of msquic and build from source. Need to wait for msquic crate publish
 msquic-h3 = { version = "0.0.4" }
 msquic = { version = "2.5.1-beta", default-features = false, features = ["find"] }
 
 axum = {version = "0.8", default-features = false}
 http-body-util = "0.1"
+bytes = "1"
 
 # crates in this workspace
 tonic-h3 = { path = "tonic-h3" }
