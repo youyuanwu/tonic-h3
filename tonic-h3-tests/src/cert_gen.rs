@@ -20,8 +20,8 @@ pub fn make_test_cert_files(
     // remove and regenerate.
     if regen {
         let _ = std::fs::remove_dir_all(&temp_dir);
-        std::fs::create_dir_all(&temp_dir).expect("Failed to create temp directory");
     }
+    std::fs::create_dir_all(&temp_dir).expect("Failed to create temp directory");
 
     // Define file paths in temp directory
     let cert_path = temp_dir.join("cert.pem");
