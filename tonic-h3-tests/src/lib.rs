@@ -205,25 +205,9 @@ pub mod msquic_util {
 
     #[cfg(not(target_os = "windows"))]
     pub fn get_test_cred() -> Credential {
-        use std::io::Write;
-
         use msquic::CertificateFile;
 
-        let cert_dir = std::env::temp_dir().join("tonic_h3_test");
-        let key = "key.pem";
-        let cert = "cert.pem";
-        let key_path = cert_dir.join(key);
-        let cert_path = cert_dir.join(cert);
-        if !key_path.exists() || !cert_path.exists() {
-            // remove the dir
-            let _ = std::fs::remove_dir_all(&cert_dir);
-            std::fs::create_dir_all(&cert_dir).expect("cannot create cert dir");
-            let mut cert_f = std::fs::File::create_new(&cert_path).unwrap();
-            let mut key_f = std::fs::File::create_new(&key_path).unwrap();
-            let (cert, key) = crate::make_test_cert(vec!["localhost".to_string()]);
-            cert_f.write_all(cert.pem().as_bytes()).unwrap();
-            key_f.write_all(key.serialize_pem().as_bytes()).unwrap();
-        }
+        let (cert_path, key_path) = crate::cert_gen::make_test_cert_files("msquic", false);
         Credential::CertificateFile(CertificateFile::new(
             key_path.display().to_string(),
             cert_path.display().to_string(),

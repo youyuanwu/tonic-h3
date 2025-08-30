@@ -18,7 +18,7 @@ use crate::quiche::server::{Server, service_fn};
 async fn test_quiche_h3() {
     crate::try_setup_tracing();
 
-    let (cert_path, key_path) = crate::cert_gen::make_test_cert_files("test_quiche_h3");
+    let (cert_path, key_path) = crate::cert_gen::make_test_cert_files("test_quiche_h3", true);
     // Test implementation goes here
 
     let addr: SocketAddr = "127.0.0.1:0".parse().unwrap();
