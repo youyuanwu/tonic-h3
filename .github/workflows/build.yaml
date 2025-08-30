@@ -8,7 +8,7 @@ jobs:
     strategy:
       matrix:
         BUILD_TYPE: ["Debug"] # "Release"
-        os: [ windows-latest, ubuntu-latest ]
+        os: [ windows-2025, ubuntu-latest ]
     steps:
     - uses: actions/checkout@v4
 
@@ -30,6 +30,10 @@ jobs:
     - name: vcpkg install msquic (windows)
       if: runner.os == 'Windows'
       run: vcpkg install msquic
+
+    - name: Use nasm from winget (for quiche boringssl)
+      if: runner.os == 'Windows'
+      run: winget install nasm --accept-package-agreements --accept-source-agreements --disable-interactivity
 
     - name: Install rust stable
       uses: dtolnay/rust-toolchain@stable

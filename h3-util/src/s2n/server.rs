@@ -1,3 +1,4 @@
+use super::s2n_quic_h3;
 use crate::server::H3Acceptor;
 use hyper::body::Bytes;
 
@@ -12,19 +13,19 @@ impl H3S2nAcceptor {
 }
 
 impl H3Acceptor for H3S2nAcceptor {
-    type CONN = crate::s2n_quic_h3::Connection;
+    type CONN = s2n_quic_h3::Connection;
 
-    type OS = crate::s2n_quic_h3::OpenStreams;
+    type OS = s2n_quic_h3::OpenStreams;
 
-    type SS = crate::s2n_quic_h3::SendStream<Bytes>;
+    type SS = s2n_quic_h3::SendStream<Bytes>;
 
-    type RS = crate::s2n_quic_h3::RecvStream;
+    type RS = s2n_quic_h3::RecvStream;
 
-    type BS = crate::s2n_quic_h3::BidiStream<Bytes>;
+    type BS = s2n_quic_h3::BidiStream<Bytes>;
 
     async fn accept(&mut self) -> Result<Option<Self::CONN>, crate::Error> {
         let conn = self.ep.accept().await;
         let Some(conn) = conn else { return Ok(None) };
-        Ok(Some(crate::s2n_quic_h3::Connection::new(conn)))
+        Ok(Some(s2n_quic_h3::Connection::new(conn)))
     }
 }

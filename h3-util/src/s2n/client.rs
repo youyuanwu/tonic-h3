@@ -1,6 +1,8 @@
 use hyper::body::Bytes;
 use hyper::http::Uri;
 
+use super::s2n_quic_h3;
+
 #[derive(Clone)]
 pub struct H3S2nConnector {
     uri: Uri,
@@ -19,15 +21,15 @@ impl H3S2nConnector {
 }
 
 impl crate::client::H3Connector for H3S2nConnector {
-    type CONN = crate::s2n_quic_h3::Connection;
+    type CONN = s2n_quic_h3::Connection;
 
-    type OS = crate::s2n_quic_h3::OpenStreams;
+    type OS = s2n_quic_h3::OpenStreams;
 
-    type SS = crate::s2n_quic_h3::SendStream<Bytes>;
+    type SS = s2n_quic_h3::SendStream<Bytes>;
 
-    type RS = crate::s2n_quic_h3::RecvStream;
+    type RS = s2n_quic_h3::RecvStream;
 
-    type BS = crate::s2n_quic_h3::BidiStream<Bytes>;
+    type BS = s2n_quic_h3::BidiStream<Bytes>;
 
     async fn connect(&self) -> Result<Self::CONN, crate::Error> {
         // connect to dns resolved addr.
@@ -45,7 +47,7 @@ impl crate::client::H3Connector for H3S2nConnector {
             {
                 Ok(mut conn) => {
                     conn.keep_alive(true)?;
-                    return Ok(crate::s2n_quic_h3::Connection::new(conn));
+                    return Ok(s2n_quic_h3::Connection::new(conn));
                 }
                 Err(e) => conn_err = e,
             }
@@ -53,8 +55,3 @@ impl crate::client::H3Connector for H3S2nConnector {
         Err(conn_err)
     }
 }
-
-// pub fn new_s2n_h3_channel(uri: Uri, ep: s2n_quic::Client) -> tonic_h3::H3Channel<H3S2nConnector> {
-//     let connector = H3S2nConnector::new(uri.clone(), "localhost".to_string(), ep);
-//     tonic_h3::H3Channel::new(connector, uri)
-// }
