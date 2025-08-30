@@ -46,3 +46,8 @@ pub mod quinn {
 pub mod msquic {
     pub use h3_util::msquic::*;
 }
+
+#[cfg(feature = "s2n-quic")]
+pub mod s2n {
+    pub use h3_util::s2n::*;
+}

@@ -630,12 +630,14 @@ dependencies = [
 name = "h3-util"
 version = "0.0.4"
 dependencies = [
+ "bytes",
  "futures",
  "h3",
  "h3-quinn",
  "hyper",
  "hyper-util",
  "msquic-h3",
+ "s2n-quic",
  "tokio",
  "tower",
  "tracing",
@@ -1698,17 +1700,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "s2n-quic-h3"
-version = "0.1.0"
-dependencies = [
- "bytes",
- "futures",
- "h3",
- "s2n-quic",
- "tracing",
-]
-
-[[package]]
 name = "s2n-quic-platform"
 version = "0.63.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2162,19 +2153,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tonic-h3-s2n"
-version = "0.1.0"
-dependencies = [
- "h3-util",
- "http",
- "hyper",
- "s2n-quic",
- "s2n-quic-h3",
- "tonic-h3",
- "tracing",
-]
-
-[[package]]
 name = "tonic-h3-test"
 version = "0.1.0"
 dependencies = [
@@ -2196,7 +2174,6 @@ dependencies = [
  "tokio-util",
  "tonic",
  "tonic-h3",
- "tonic-h3-s2n",
  "tonic-prost",
  "tonic-prost-build",
  "tracing",

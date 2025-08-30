@@ -129,7 +129,7 @@ pub fn run_test_s2n_server(
         .start()
         .unwrap();
     let listen_addr = server.local_addr().unwrap();
-    let acceptor = tonic_h3_s2n::server::H3S2nAcceptor::new(server);
+    let acceptor = h3_util::s2n::server::H3S2nAcceptor::new(server);
     let h_sv = run_test_server(acceptor, token);
 
     let h = tokio::spawn(async move {
@@ -490,7 +490,7 @@ pub fn run_s2n_client(
 ) -> (tokio::task::JoinHandle<()>, impl H3Connector) {
     let mut s2n_ep = crate::make_test_s2n_client_endpoint();
 
-    let cc = tonic_h3_s2n::client::H3S2nConnector::new(
+    let cc = h3_util::s2n::client::H3S2nConnector::new(
         uri.clone(),
         uri.host().unwrap().to_string(),
         s2n_ep.clone(),

@@ -14,6 +14,8 @@ keywords = ["http", "h3"]
 default = ["quinn", "msquic"]
 quinn = ["dep:h3-quinn"]
 msquic = ["dep:msquic-h3"]
+s2n-quic = ["dep:s2n-quic"]
+tracing = []
 
 [dependencies]
 h3.workspace = true
@@ -23,6 +25,8 @@ tracing.workspace = true
 futures.workspace = true
 tower.workspace = true
 hyper-util.workspace = true
+bytes.workspace = true
 
 h3-quinn = { workspace = true, optional = true }
 msquic-h3 = { workspace = true, optional = true }
+s2n-quic = { workspace = true, optional = true }

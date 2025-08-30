@@ -72,7 +72,12 @@ async fn h3_test(
     // test s2n client
     let mut s2n_ep = crate::make_test_s2n_client_endpoint();
     {
-        let channel = tonic_h3_s2n::client::new_s2n_h3_channel(uri.clone(), s2n_ep.clone());
+        let cc = tonic_h3::s2n::client::H3S2nConnector::new(
+            uri.clone(),
+            "localhost".to_string(),
+            s2n_ep.clone(),
+        );
+        let channel = tonic_h3::H3Channel::new(cc, uri.clone());
         let mut client = crate::greeter_client::GreeterClient::new(channel);
         {
             let request = tonic::Request::new(crate::HelloRequest {
