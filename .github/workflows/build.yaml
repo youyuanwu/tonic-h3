@@ -10,7 +10,7 @@ jobs:
         BUILD_TYPE: ["Debug"] # "Release"
         os: [ windows-2025, ubuntu-latest ]
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
     - name: Install msquic from apt (linux)
       if: runner.os == 'Linux'
