@@ -149,7 +149,7 @@ pub fn run_test_s2n_server(
 
 // #[cfg(target_os = "windows")]
 pub mod msquic_util {
-    use std::{net::SocketAddr, sync::Arc};
+    use std::net::SocketAddr;
 
     use h3_util::msquic::msquic_h3::{
         Listener,
@@ -291,7 +291,13 @@ pub mod msquic_util {
     ) {
         let (reg, config) = crate::make_test_msquic_client_parts();
 
-        let cc = h3_util::msquic::client::H3MsQuicConnector::new(config, reg.clone(), uri.clone());
+        let msquic_waiter = h3_util::msquic::client::H3MsQuicClientWaiter::default();
+        let cc = h3_util::msquic::client::H3MsQuicConnector::new(
+            config,
+            reg.clone(),
+            uri.clone(),
+            msquic_waiter.clone(),
+        );
 
         let h = tokio::spawn(async move {
             token.cancelled().await;
@@ -299,12 +305,7 @@ pub mod msquic_util {
             // signify to close all connections on this registration.
             reg.shutdown();
             tracing::debug!("client registration shutdown completed.");
-
-            // This waits for all connections to close.
-            // This works because each connection holds a reference to the registration.
-            while Arc::strong_count(&reg) != 1 {
-                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-            }
+            msquic_waiter.wait_shutdown().await;
             // If connections are not yet closed this will stuck.
             std::mem::drop(reg);
             tracing::debug!("client registration dropped.");

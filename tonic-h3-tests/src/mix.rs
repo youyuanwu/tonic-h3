@@ -92,9 +92,15 @@ async fn h3_test(
     // test msquic client
     // reg should be the last thing to drop, otherwise it will wait for other handle to drop and deadlock.
     let (reg, config) = crate::make_test_msquic_client_parts();
+    let msquic_waiter = h3_util::msquic::client::H3MsQuicClientWaiter::default();
     {
         let channel = tonic_h3::H3Channel::new(
-            h3_util::msquic::client::H3MsQuicConnector::new(config, reg.clone(), uri.clone()),
+            h3_util::msquic::client::H3MsQuicConnector::new(
+                config,
+                reg.clone(),
+                uri.clone(),
+                msquic_waiter.clone(),
+            ),
             uri.clone(),
         );
         let mut client = crate::greeter_client::GreeterClient::new(channel);
@@ -105,10 +111,10 @@ async fn h3_test(
             let response = client.say_hello(request).await.unwrap();
             tracing::debug!("RESPONSE={:?}", response);
         }
+        // trigger reg shutdown and wait for connection to close.
+        reg.shutdown();
+        msquic_waiter.wait_shutdown().await;
     }
-    // client is already dropped.
-    reg.shutdown();
-
     token.cancel();
     h_svr.await.unwrap();
 }
