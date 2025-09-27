@@ -2,3 +2,4 @@ target
 obj
 bin
 .vscode
+codecov.json

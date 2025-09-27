@@ -68,7 +68,7 @@ jobs:
       run: cargo test --all
 
     - name: Run llvm-cov
-      run: cargo llvm-cov --codecov --output-path codecov.json --ignore-filename-regex "tonic-h3-tests.*|external.*"
+      run: cargo llvm-cov --codecov --output-path codecov.json --ignore-filename-regex "tonic-h3-tests.*|external.*" --features llvm-cov-mode
 
     - name: Show cov summary
       run: cargo llvm-cov report --summary-only --ignore-filename-regex "tonic-h3-tests.*|external.*"

@@ -6,8 +6,11 @@ use h3_util::{client::H3Connector, s2n::s2n_quic, server::H3Acceptor};
 use http::Uri;
 use tokio_util::sync::CancellationToken;
 
+// llvm-cov with external exe messes up the build cache.
+// So we do not run the cross exe tests.
 #[cfg(test)]
 #[cfg(target_os = "windows")]
+#[cfg(not(feature = "llvm-cov-mode"))]
 mod dotnet;
 
 #[cfg(test)]

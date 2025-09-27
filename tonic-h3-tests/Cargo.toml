@@ -28,6 +28,9 @@ msquic.workspace = true
 futures.workspace = true
 hyper.workspace = true
 
+[features]
+llvm-cov-mode = []
+
 [build-dependencies]
 tonic-prost-build.workspace = true
 
