@@ -36,7 +36,10 @@ axum = {version = "0.8", default-features = false}
 http-body-util = "0.1"
 bytes = "1"
 
-tokio-quiche = { version = "0.7" , default-features = false}
+# quiche dependencies
+tokio-quiche = { version = "0.10" , default-features = false}
+futures-util = "0.3"
+http-body = "1"
 
 # crates in this workspace
 tonic-h3 = { path = "tonic-h3" }

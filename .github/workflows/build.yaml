@@ -8,24 +8,36 @@ jobs:
     strategy:
       matrix:
         BUILD_TYPE: ["Debug"] # "Release"
-        os: [ windows-2025, ubuntu-latest ]
+        os: [ windows-latest, ubuntu-latest ]
     steps:
     - uses: actions/checkout@v5
 
+    # choose a older version to avoid apt error
     - name: Install msquic from apt (linux)
       if: runner.os == 'Linux'
       run: |
         wget -q https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/packages-microsoft-prod.deb;
         sudo dpkg -i packages-microsoft-prod.deb;
         sudo apt-get update;
-        sudo apt-get install libmsquic;
+        sudo apt-get install libmsquic=2.4.8;
         dpkg -L libmsquic;
 
     - name: Run Vcpkg (windows)
       if: runner.os == 'Windows'
       uses: lukka/run-vcpkg@v11
       with:
-        vcpkgGitCommitId: 7354f1c8a0a276072e8d73d7eb6df6ca0ce8ccb1
+        vcpkgGitCommitId: e3ed41868d5034bc608eaaa58383cd6ecdbb5ffb
+      env:
+        VCPKG_BINARY_SOURCES: default,rw
+
+    - name: Set up binary cache
+      if: runner.os == 'Windows'
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+        key: ${{ runner.os }}-vcpkg-binary-cache-${{ hashFiles('vcpkg*.json') }}
+        restore-keys: |
+          ${{ runner.os }}-vcpkg-binary-cache-
 
     - name: vcpkg install msquic (windows)
       if: runner.os == 'Windows'
@@ -38,7 +50,7 @@ jobs:
     - name: Install rust stable
       uses: dtolnay/rust-toolchain@stable
       with:
-        toolchain: 1.89.0
+        toolchain: 1.90.0
         components: rustfmt, clippy
 
     - uses: taiki-e/install-action@protoc
@@ -46,7 +58,7 @@ jobs:
     - uses: taiki-e/install-action@cargo-llvm-cov
 
     - name: Run cargo check
-      run: cargo check
+      run: cargo check --all-targets
 
     - name: Run cargo fmt
       run: cargo fmt --all -- --check
@@ -65,7 +77,7 @@ jobs:
       run: cargo build --all-targets
 
     - name: run all rust unittests
-      run: cargo test --all
+      run: cargo test --all-targets
 
     - name: Run llvm-cov
       run: cargo llvm-cov --codecov --output-path codecov.json --ignore-filename-regex "tonic-h3-tests.*|external.*" --features llvm-cov-mode

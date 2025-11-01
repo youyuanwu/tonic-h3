@@ -28,6 +28,11 @@ msquic.workspace = true
 futures.workspace = true
 hyper.workspace = true
 
+# quiche examples
+futures-util.workspace = true
+http-body.workspace = true
+tokio-quiche.workspace = true
+
 [features]
 llvm-cov-mode = []
 
