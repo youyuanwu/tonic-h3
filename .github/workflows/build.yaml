@@ -89,6 +89,9 @@ jobs:
     - name: run all rust unittests
       run: cargo test --all-targets
 
+    - name: check crate packaging
+      run: cargo package -p tonic-h3 -p h3-util -p h3-util -p axum-h3 --allow-dirty
+
     - name: Run llvm-cov
       run: cargo llvm-cov --codecov --output-path codecov.json --ignore-filename-regex "tonic-h3-tests.*|external.*" --features llvm-cov-mode
 
