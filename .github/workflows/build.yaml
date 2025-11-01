@@ -7,10 +7,20 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        BUILD_TYPE: ["Debug"] # "Release"
         os: [ windows-latest, ubuntu-latest ]
+    env:
+      SCCACHE_GHA_ENABLED: "true"
+      RUSTC_WRAPPER: "sccache"
+      CMAKE_C_COMPILER_LAUNCHER: "sccache"
+      CMAKE_CXX_COMPILER_LAUNCHER: "sccache"
+
     steps:
     - uses: actions/checkout@v5
+
+    - name: Run sccache-cache
+      uses: mozilla-actions/sccache-action@v0.0.9
+      with:
+        version: "v0.10.0"
 
     # choose a older version to avoid apt error
     - name: Install msquic from apt (linux)
