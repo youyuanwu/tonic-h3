@@ -148,7 +148,7 @@ dependencies = [
 
 [[package]]
 name = "axum-h3"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "axum",
  "futures",
@@ -1037,7 +1037,7 @@ dependencies = [
 
 [[package]]
 name = "h3-util"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "bytes",
  "futures",
@@ -3380,7 +3380,7 @@ dependencies = [
 
 [[package]]
 name = "tonic-h3"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "axum-h3",
  "futures",
