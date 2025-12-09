@@ -8,6 +8,7 @@ jobs:
     strategy:
       matrix:
         os: [ windows-latest, ubuntu-latest ]
+      fail-fast: false
     env:
       SCCACHE_GHA_ENABLED: "true"
       RUSTC_WRAPPER: "sccache"
@@ -21,6 +22,9 @@ jobs:
       uses: mozilla-actions/sccache-action@v0.0.9
       with:
         version: "v0.10.0"
+
+    - name: Run Rust cache
+      uses: Swatinem/rust-cache@v2
 
     # choose a older version to avoid apt error
     - name: Install msquic from apt (linux)
@@ -40,7 +44,7 @@ jobs:
       env:
         VCPKG_BINARY_SOURCES: default,rw
 
-    - name: Set up binary cache
+    - name: Set up vcpkg binary cache
       if: runner.os == 'Windows'
       uses: actions/cache@v4
       with:
@@ -49,7 +53,7 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-vcpkg-binary-cache-
 
-    - name: vcpkg install msquic (windows)
+    - name: vcpkg install (windows)
       if: runner.os == 'Windows'
       run: vcpkg install msquic
 
