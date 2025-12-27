@@ -60,6 +60,7 @@ async fn axum_test() {
 }
 
 #[tokio::test]
+#[ignore = "requires external server"]
 async fn h2o_client_test() {
     // cloudflare does not work:
     // let uri =  http::Uri::from_static("https://cloudflare-quic.com:443/");
@@ -70,6 +71,7 @@ async fn h2o_client_test() {
 }
 
 #[tokio::test]
+#[ignore = "requires external server"]
 async fn apache_client_test() {
     let uri = Uri::from_static("https://docs.trafficserver.apache.org:443/");
     test_client(uri).await;
