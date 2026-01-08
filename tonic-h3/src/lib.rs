@@ -51,3 +51,8 @@ pub mod msquic {
 pub mod s2n {
     pub use h3_util::s2n::*;
 }
+
+#[cfg(feature = "gm-quic")]
+pub mod gm_quic {
+    pub use h3_util::gm_quic::*;
+}

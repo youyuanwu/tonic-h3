@@ -16,5 +16,9 @@ pub mod s2n;
 #[cfg(feature = "quiche")]
 pub mod quiche_h3;
 
+/// gm-quic backend using h3-shim
+#[cfg(feature = "gm-quic")]
+pub mod gm_quic;
+
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
 pub use std::error::Error as StdError;

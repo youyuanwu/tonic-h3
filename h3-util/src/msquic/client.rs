@@ -36,10 +36,12 @@ pub struct H3MsQuicConnector {
     config: Option<Arc<Configuration>>,
     reg: Option<Arc<Registration>>,
     uri: Uri,
+    server_name: Option<String>,
     waiter: H3MsQuicClientWaiter,
 }
 
 impl H3MsQuicConnector {
+    /// Create a new connector that uses the URI host as the server name (SNI).
     pub fn new(
         config: Arc<Configuration>,
         reg: Arc<Registration>,
@@ -50,6 +52,26 @@ impl H3MsQuicConnector {
             config: Some(config),
             reg: Some(reg),
             uri,
+            server_name: None,
+            waiter,
+        }
+    }
+
+    /// Create a new connector with a custom server name (SNI) for TLS.
+    /// This is useful when connecting to an IP address but need to send
+    /// a hostname as SNI (e.g., for virtual hosting).
+    pub fn with_server_name(
+        config: Arc<Configuration>,
+        reg: Arc<Registration>,
+        uri: Uri,
+        server_name: String,
+        waiter: H3MsQuicClientWaiter,
+    ) -> Self {
+        Self {
+            config: Some(config),
+            reg: Some(reg),
+            uri,
+            server_name: Some(server_name),
             waiter,
         }
     }
@@ -68,10 +90,15 @@ impl crate::client::H3Connector for H3MsQuicConnector {
 
     async fn connect(&self) -> Result<Self::CONN, crate::Error> {
         // Maybe conn should hold a arc to reg. so that we can track how many connections are using it.
+        // Use custom server_name if provided, otherwise use URI host
+        let server_name = self
+            .server_name
+            .as_deref()
+            .unwrap_or_else(|| self.uri.host().unwrap());
         let mut conn = msquic_h3::Connection::connect(
             self.reg.as_ref().unwrap(),
             self.config.as_ref().unwrap(),
-            self.uri.host().unwrap(),
+            server_name,
             self.uri.port_u16().unwrap(),
         )
         .await

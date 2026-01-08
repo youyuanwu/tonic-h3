@@ -25,6 +25,9 @@ mod mix;
 #[cfg(test)]
 mod quiche;
 
+#[cfg(test)]
+mod gm_quic;
+
 pub mod cert_gen;
 
 tonic::include_proto!("helloworld"); // The string specified here must match the proto package name
@@ -64,6 +67,10 @@ pub fn make_test_cert_rustls(
 }
 
 pub fn try_setup_tracing() {
+    // Install rustls crypto provider for gm-quic compatibility
+    // (gm-quic uses rustls 0.23+ which requires explicit provider setup)
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    
     let _ = tracing_subscriber::fmt()
         .with_max_level(tracing::Level::DEBUG)
         .try_init();
@@ -493,6 +500,90 @@ pub fn run_s2n_client(
         s2n_ep.wait_idle().await.unwrap();
     });
     (h, cc)
+}
+
+pub mod gm_quic_util {
+    use std::net::SocketAddr;
+
+    use gm_quic::prelude::{QuicClient, QuicListeners};
+    use h3_util::gm_quic::server::H3GmQuicAcceptor;
+    use tokio_util::sync::CancellationToken;
+
+    pub fn make_test_gm_quic_client() -> QuicClient {
+        // Create a gm-quic client with no certificate verification (for testing)
+        // Must set ALPN to "h3" for HTTP/3 protocol negotiation
+        QuicClient::builder()
+            .without_verifier()
+            .without_cert()
+            .with_alpns(["h3"])
+            .build()
+    }
+
+    pub fn run_test_gm_quic_server(
+        in_addr: SocketAddr,
+        token: CancellationToken,
+    ) -> (tokio::task::JoinHandle<()>, SocketAddr) {
+        use gm_quic::prelude::QuicIO;
+
+        // Generate test certificates
+        let (cert_path, key_path) = crate::cert_gen::make_test_cert_files("gm_quic", false);
+
+        // Create gm-quic server listeners
+        // 1. builder() returns Result
+        // 2. without_client_cert_verifier() configures no client auth
+        // 3. with_alpns() sets the ALPN protocols
+        // 4. listen(backlog) creates the listeners (returns Arc<QuicListeners>)
+        let listeners = QuicListeners::builder()
+            .expect("Failed to create QuicListeners builder")
+            .without_client_cert_verifier()
+            .with_alpns(["h3"])
+            .listen(8); // backlog size
+
+        // Add a server with certificate (virtual host style)
+        // BindUri accepts &str, ToCertificate/ToPrivateKey accept &Path
+        listeners
+            .add_server(
+                "localhost",
+                cert_path.as_path(),
+                key_path.as_path(),
+                [in_addr], // SocketAddr implements Into<BindUri>
+                None::<Vec<u8>>,
+            )
+            .expect("Failed to add server for localhost");
+
+        // Get the actual bound address from the server's interface
+        let listen_addr = {
+            let server = listeners.get_server("localhost").expect("Server not found");
+            let bind_interfaces = server.bind_interfaces();
+            let (_, bind_iface) = bind_interfaces.iter().next().expect("No bound interface");
+            let real_addr = bind_iface
+                .borrow()
+                .expect("Failed to borrow interface")
+                .real_addr()
+                .expect("Failed to get real address");
+            match real_addr {
+                gm_quic::prelude::RealAddr::Internet(addr) => addr,
+                _ => panic!("Expected internet address"),
+            }
+        };
+
+        // listen() already returns Arc<QuicListeners>
+        let acceptor = H3GmQuicAcceptor::new(listeners);
+        let acceptor_cp = acceptor.clone();
+
+        let h_sv = super::run_test_server(acceptor, token);
+
+        let h = tokio::spawn(async move {
+            h_sv.await
+                .expect("cannot join")
+                .expect("tonic server failed");
+            // Shutdown the gm-quic acceptor to release global resources
+            acceptor_cp.shutdown().await;
+            tracing::debug!("gm-quic test server ended");
+        });
+
+        (h, listen_addr)
+    }
 }
 
 /// Code to be used in rust docs
