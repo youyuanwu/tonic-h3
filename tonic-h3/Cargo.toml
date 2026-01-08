@@ -17,6 +17,7 @@ quinn = ["h3-util/quinn"]
 msquic = ["h3-util/msquic"]
 s2n-quic = ["h3-util/s2n-quic"]
 quiche = ["h3-util/quiche"]
+gm-quic = ["h3-util/gm-quic"]
 
 [dependencies]
 futures.workspace = true

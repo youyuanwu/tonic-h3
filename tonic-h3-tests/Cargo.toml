@@ -11,7 +11,7 @@ rustls.workspace = true
 serial_test.workspace = true
 tokio.workspace = true
 tokio-util.workspace = true
-tonic-h3 = {workspace = true, features = ["quinn", "msquic", "s2n-quic", "quiche"]}
+tonic-h3 = {workspace = true, features = ["quinn", "msquic", "s2n-quic", "quiche", "gm-quic"]}
 tonic.workspace = true
 tonic-prost.workspace = true
 tracing-subscriber.workspace = true
@@ -32,6 +32,10 @@ hyper.workspace = true
 futures-util.workspace = true
 http-body.workspace = true
 tokio-quiche.workspace = true
+
+# gm-quic examples
+gm-quic.workspace = true
+h3-shim.workspace = true
 
 [features]
 llvm-cov-mode = []

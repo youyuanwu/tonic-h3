@@ -7,6 +7,8 @@ package.edition = "2024"
 futures = "0.3"
 h3 = { version = "0.0.8" }
 h3-quinn = "0.0.10"
+h3-shim = "0.4.0"
+gm-quic = "0.4.0"
 http = "1"
 hyper = { version = "1" , default-features = false}
 hyper-util = { version = "0.1", default-features = false, features = ["service", "tokio"] }

@@ -16,6 +16,7 @@ quinn = ["dep:h3-quinn"]
 msquic = ["dep:msquic-h3"]
 s2n-quic = ["dep:s2n-quic"]
 quiche = ["dep:tokio-quiche"]
+gm-quic = ["dep:h3-shim", "dep:gm-quic"]
 tracing = []
 
 [dependencies]
@@ -29,6 +30,8 @@ hyper-util.workspace = true
 bytes.workspace = true
 
 h3-quinn = { workspace = true, optional = true }
+h3-shim = { workspace = true, optional = true }
+gm-quic = { workspace = true, optional = true }
 msquic-h3 = { workspace = true, optional = true }
 s2n-quic = { workspace = true, optional = true }
 tokio-quiche = { workspace = true, optional = true }
