@@ -18,9 +18,8 @@ pub mod body;
 pub mod server;
 
 #[tokio::test]
+#[test_log::test]
 async fn test_quiche_h3() {
-    crate::try_setup_tracing();
-
     let (cert_path, key_path) = crate::cert_gen::make_test_cert_files("test_quiche_h3", true);
     // Test implementation goes here
 
@@ -75,7 +74,7 @@ mod quinn_client {
             let resp = client.send(req).await.unwrap();
             use http_body_util::BodyExt;
             let data = resp.into_body().collect().await.unwrap().to_bytes();
-            println!("Resp: {data:?}");
+            tracing::debug!("Resp: {data:?}");
         }
     }
 }

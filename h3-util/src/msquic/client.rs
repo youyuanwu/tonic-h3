@@ -78,7 +78,7 @@ impl crate::client::H3Connector for H3MsQuicConnector {
         .map_err(crate::Error::from)?;
         let waiter = conn.get_shutdown_waiter();
         self.waiter.replace(waiter);
-        tracing::debug!("client conn start");
+        tracing::debug!("client conn started to {}", self.uri);
         Ok(conn)
     }
 }

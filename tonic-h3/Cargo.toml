@@ -11,6 +11,9 @@ categories = ["web-programming", "network-programming"]
 keywords = ["gRPC", "h3"]
 readme = "../README.md"
 
+[lib]
+test = false
+
 [features]
 default = []
 quinn = ["h3-util/quinn"]

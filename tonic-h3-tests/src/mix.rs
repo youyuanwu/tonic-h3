@@ -4,16 +4,19 @@ use tokio_util::sync::CancellationToken;
 use tonic::transport::Uri;
 
 #[tokio::test]
+#[test_log::test]
 async fn h3_quinn_test() {
     h3_test(crate::run_test_quinn_hello_server).await;
 }
 
 #[tokio::test]
+#[test_log::test]
 async fn h3_s2n_test() {
     h3_test(crate::run_test_s2n_server).await;
 }
 
 #[tokio::test]
+#[test_log::test]
 async fn msquic_test() {
     h3_test(crate::msquic_util::run_test_msquic_server).await;
 }
@@ -23,8 +26,6 @@ async fn msquic_test() {
 async fn h3_test(
     run_server: fn(SocketAddr, CancellationToken) -> (tokio::task::JoinHandle<()>, SocketAddr),
 ) {
-    crate::try_setup_tracing();
-
     let addr: std::net::SocketAddr = "127.0.0.1:0".parse().unwrap();
     let token = CancellationToken::new();
     let (h_svr, listen_addr) = run_server(addr, token.clone());

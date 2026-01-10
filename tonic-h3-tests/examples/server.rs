@@ -2,7 +2,9 @@ use tokio_util::sync::CancellationToken;
 
 #[tokio::main]
 async fn main() {
-    tonic_h3_test::try_setup_tracing();
+    let _ = tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::DEBUG)
+        .try_init();
     let addr: std::net::SocketAddr = "127.0.0.1:5047".parse().unwrap();
 
     let token = CancellationToken::new();

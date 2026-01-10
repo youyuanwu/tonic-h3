@@ -12,11 +12,12 @@ hyper = { version = "1" , default-features = false}
 hyper-util = { version = "0.1", default-features = false, features = ["service", "tokio"] }
 prost = "0.14"
 prost-build = "0.14"
-quinn = "0.11"
-rcgen = "0.14"
-rustls = { version = "0.23", default-features = false, features = ["std"] }
+quinn = { version = "0.11", default-features = false, features = [] }
+rcgen = { version = "0.14", default-features = false, features = ["crypto", "aws_lc_rs", "pem"] }
+rustls = { version = "0.23", default-features = false, features = ["std", "aws_lc_rs"] }
 serial_test = "3"
-tokio = { version = "1", features = ["full"], default-features = false }
+test-log = { version = "0.2", default-features = false, features = ["trace"] }
+tokio = { version = "1", default-features = false, features = ["full"] }
 tokio-util = "0.7"
 tonic = { version = "0.14", default-features = false, features = ["router", "codegen", "transport"] }
 tonic-prost-build = "0.14"
@@ -28,7 +29,6 @@ tracing-subscriber = { version = "0.3", default-features = false, features = [
 ] }
 trait-variant = "0.1"
 s2n-quic = { version = "1", default-features = false, features = ["provider-tls-rustls", "provider-address-token-default"] }
-
 msquic-h3 = { version = "0.0.5", features = [] }
 msquic = { version = "2.5.1-beta", default-features = false, features = ["find"] }
 
@@ -37,7 +37,7 @@ http-body-util = "0.1"
 bytes = "1"
 
 # quiche dependencies
-tokio-quiche = { version = "0.12" , default-features = false}
+tokio-quiche = { version = "0.13" , default-features = false}
 futures-util = "0.3"
 http-body = "1"
 

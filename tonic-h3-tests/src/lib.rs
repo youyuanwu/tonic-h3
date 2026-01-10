@@ -63,12 +63,6 @@ pub fn make_test_cert_rustls(
     (cert, key)
 }
 
-pub fn try_setup_tracing() {
-    let _ = tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::DEBUG)
-        .try_init();
-}
-
 pub fn make_quinn_server_endpoint(in_addr: SocketAddr) -> quinn::Endpoint {
     let tls_config = Arc::new(make_rustls_server_config());
 
@@ -167,7 +161,7 @@ pub mod msquic_util {
 
     /// Use pwsh to get the test cert hash
     #[cfg(target_os = "windows")]
-    pub fn get_test_cred() -> Credential {
+    fn get_test_cred_internal() -> Credential {
         use h3_util::msquic::msquic_h3::msquic::CertificateHash;
         fn get_hash() -> Option<String> {
             let get_cert_cmd = "Get-ChildItem Cert:\\CurrentUser\\My | Where-Object -Property FriendlyName -EQ -Value MsQuic-Test | Select-Object -ExpandProperty Thumbprint -First 1";
@@ -193,6 +187,9 @@ pub mod msquic_util {
                 .stderr(std::process::Stdio::inherit())
                 .output()
                 .expect("Failed to execute command");
+            if !output.status.success() {
+                tracing::debug!("test cert generation failed: {gen_cert_cmd}");
+            }
             assert!(output.status.success());
         }
         // generate the cert if not exist
@@ -207,7 +204,7 @@ pub mod msquic_util {
     }
 
     #[cfg(not(target_os = "windows"))]
-    pub fn get_test_cred() -> Credential {
+    fn get_test_cred_internal() -> Credential {
         use msquic::CertificateFile;
 
         let (cert_path, key_path) = crate::cert_gen::make_test_cert_files("msquic", false);
@@ -215,6 +212,14 @@ pub mod msquic_util {
             key_path.display().to_string(),
             cert_path.display().to_string(),
         ))
+    }
+
+    pub fn get_test_cred() -> Credential {
+        // Hack to make sure only one thread generates the cert.
+        // cred cannot be stored in OnceLock.
+        static INIT: std::sync::Mutex<bool> = std::sync::Mutex::new(false);
+        let _init = INIT.lock().unwrap();
+        get_test_cred_internal()
     }
 
     pub fn run_test_msquic_server(
@@ -308,6 +313,7 @@ pub mod msquic_util {
             // signify to close all connections on this registration.
             reg.shutdown();
             tracing::debug!("client registration shutdown completed.");
+            // TODO: Sometimes the test is still stuck here.
             msquic_waiter.wait_shutdown().await;
             // If connections are not yet closed this will stuck.
             std::mem::drop(reg);
@@ -381,13 +387,13 @@ mod danger {
 
 pub fn make_danger_rustls_client_config() -> rustls::ClientConfig {
     let mut tls_config = rustls::ClientConfig::builder_with_provider(
-        rustls::crypto::ring::default_provider().into(),
+        rustls::crypto::aws_lc_rs::default_provider().into(),
     )
     .with_safe_default_protocol_versions()
     .unwrap()
     .dangerous() // Do not verify server certs
     .with_custom_certificate_verifier(Arc::new(crate::danger::NoCertificateVerification::new(
-        rustls::crypto::ring::default_provider(),
+        rustls::crypto::aws_lc_rs::default_provider(),
     )))
     .with_no_client_auth();
 
@@ -399,7 +405,7 @@ pub fn make_danger_rustls_client_config() -> rustls::ClientConfig {
 pub fn make_rustls_server_config() -> rustls::ServerConfig {
     let (cert, key) = crate::make_test_cert_rustls(vec!["localhost".to_string()]);
     let mut tls_config = rustls::ServerConfig::builder_with_provider(
-        rustls::crypto::ring::default_provider().into(),
+        rustls::crypto::aws_lc_rs::default_provider().into(),
     )
     .with_safe_default_protocol_versions()
     .unwrap()

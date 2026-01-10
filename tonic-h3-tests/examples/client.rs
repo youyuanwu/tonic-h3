@@ -2,7 +2,9 @@ use http::Uri;
 
 #[tokio::main]
 async fn main() {
-    tonic_h3_test::try_setup_tracing();
+    let _ = tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::DEBUG)
+        .try_init();
     let client_endpoint = tonic_h3_test::make_test_quinn_client_endpoint();
 
     let uri: Uri = "https://127.0.0.1:5047".parse().unwrap();

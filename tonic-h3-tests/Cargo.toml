@@ -9,6 +9,7 @@ prost.workspace = true
 rcgen.workspace = true
 rustls.workspace = true
 serial_test.workspace = true
+test-log.workspace = true
 tokio.workspace = true
 tokio-util.workspace = true
 tonic-h3 = {workspace = true, features = ["quinn", "msquic", "s2n-quic", "quiche"]}
@@ -22,7 +23,7 @@ axum-h3.workspace = true
 http-body-util.workspace = true
 http.workspace = true
 # need to enable rustls
-quinn.workspace = true
+quinn = { workspace = true, default-features = false, features = ["aws-lc-rs", "rustls-aws-lc-rs", "runtime-tokio", "log"] }
 # need to link with msquic
 msquic.workspace = true
 futures.workspace = true

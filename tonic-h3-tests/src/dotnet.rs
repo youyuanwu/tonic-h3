@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 fn invoke_dotnet_client(root_dir: &Path) -> std::process::Output {
     // send csharp request to server
-    println!("launching dotnet client");
+    tracing::debug!("launching dotnet client");
     std::process::Command::new("dotnet")
         .current_dir(root_dir)
         .args(["run", "--project", "./dotnet/client/client.csproj"])
@@ -13,7 +13,7 @@ fn invoke_dotnet_client(root_dir: &Path) -> std::process::Output {
 }
 
 fn invoke_rust_client() {
-    println!("launching rust client");
+    tracing::debug!("launching rust client");
     let child_client = std::process::Command::new("cargo")
         .args([
             "run",
@@ -33,7 +33,7 @@ fn invoke_rust_client() {
 }
 
 fn run_rust_server() -> std::process::Child {
-    println!("launching rust server");
+    tracing::debug!("launching rust server");
     std::process::Command::new("cargo")
         .args([
             "run",
@@ -52,7 +52,7 @@ fn run_rust_server() -> std::process::Child {
 }
 
 fn run_dotnet_server(root_dir: &Path) -> std::process::Child {
-    println!("launching rust server");
+    tracing::debug!("launching dotnet server");
     std::process::Command::new("dotnet")
         .current_dir(root_dir)
         .args(["run", "--project", "./dotnet/server/server.csproj"])
@@ -62,13 +62,14 @@ fn run_dotnet_server(root_dir: &Path) -> std::process::Child {
 
 fn get_root_dir() -> PathBuf {
     let curr_dir = std::env::current_dir().unwrap();
-    println!("{curr_dir:?}");
+    tracing::debug!("current dir: {curr_dir:?}");
     let root_dir = curr_dir.parent().unwrap();
     root_dir.to_path_buf()
 }
 
 #[tokio::test]
-#[serial_test::serial]
+#[test_log::test]
+#[serial_test::serial(dotnet)]
 async fn rust_server() {
     let root_dir = get_root_dir();
     // run server example
@@ -83,7 +84,7 @@ async fn rust_server() {
             ok = true;
             break;
         } else {
-            println!("retrying invoke_dotnet_client");
+            tracing::debug!("retrying invoke_dotnet_client");
             tokio::time::sleep(std::time::Duration::from_secs(1)).await;
         }
     }
@@ -95,11 +96,12 @@ async fn rust_server() {
 
     let server_out = h_svr.wait_with_output().unwrap();
     // server kill may exit with code 1.
-    println!("server output: {server_out:?}");
+    tracing::debug!("server output: {server_out:?}");
 }
 
 #[tokio::test]
-#[serial_test::serial]
+#[test_log::test]
+#[serial_test::serial(dotnet)]
 async fn dotnet_server() {
     let root_dir = get_root_dir();
     // run server example
@@ -116,7 +118,7 @@ async fn dotnet_server() {
             ok = true;
             break;
         } else {
-            println!("retrying invoke_dotnet_client");
+            tracing::debug!("retrying invoke_dotnet_client");
             tokio::time::sleep(std::time::Duration::from_secs(1)).await;
         }
     }
@@ -128,5 +130,5 @@ async fn dotnet_server() {
 
     let server_out = h_svr.wait_with_output().unwrap();
     // server kill may exit with code 1.
-    println!("server output: {server_out:?}");
+    tracing::debug!("server output: {server_out:?}");
 }

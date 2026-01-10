@@ -18,6 +18,9 @@ s2n-quic = ["dep:s2n-quic"]
 quiche = ["dep:tokio-quiche"]
 tracing = []
 
+[lib]
+test = false
+
 [dependencies]
 h3.workspace = true
 hyper.workspace = true

@@ -10,6 +10,9 @@ categories = ["web-programming", "network-programming"]
 keywords = ["axum", "h3"]
 readme = "README.md"
 
+[lib]
+test = false
+
 [dependencies]
 axum.workspace = true
 tokio.workspace = true
