@@ -2,10 +2,10 @@ use hyper::body::Bytes;
 
 use crate::server::H3Acceptor;
 
-async fn select_conn2(
+async fn select_conn(
     incoming: &h3_quinn::Endpoint,
     tasks: &mut tokio::task::JoinSet<Result<h3_quinn::Connection, crate::Error>>,
-) -> SelectOutputConn2 {
+) -> SelectOutputConn {
     tracing::debug!("select_conn");
 
     let incoming_stream_future = async {
@@ -13,9 +13,9 @@ async fn select_conn2(
         match incoming.accept().await {
             Some(i) => {
                 tracing::debug!("endpoint accept incoming conn");
-                SelectOutputConn2::NewIncoming(i)
+                SelectOutputConn::NewIncoming(i)
             }
-            None => SelectOutputConn2::Done, // shutdown.
+            None => SelectOutputConn::Done, // shutdown.
         }
     };
     if tasks.is_empty() {
@@ -29,19 +29,19 @@ async fn select_conn2(
                 Ok(conn) => {
                     match conn {
                         Ok(conn2) => {
-                            SelectOutputConn2::NewConn(conn2)
+                            SelectOutputConn::NewConn(conn2)
                         },
-                        Err(e) => SelectOutputConn2::ConnErr(e)
+                        Err(e) => SelectOutputConn::ConnErr(e)
                     }
                 },
-                Err(e) => SelectOutputConn2::ConnErr(e.into()),
+                Err(e) => SelectOutputConn::ConnErr(e.into()),
             }
         }
     }
 }
 
 #[allow(clippy::large_enum_variant)]
-enum SelectOutputConn2 {
+enum SelectOutputConn {
     NewIncoming(h3_quinn::quinn::Incoming),
     NewConn(h3_quinn::Connection),
     ConnErr(crate::Error),
@@ -71,8 +71,8 @@ impl H3Acceptor for H3QuinnAcceptor {
 
     async fn accept(&mut self) -> Result<Option<Self::CONN>, crate::Error> {
         loop {
-            match select_conn2(&self.ep, &mut self.tasks).await {
-                SelectOutputConn2::NewIncoming(incoming) => {
+            match select_conn(&self.ep, &mut self.tasks).await {
+                SelectOutputConn::NewIncoming(incoming) => {
                     tracing::debug!("poll conn new incoming");
                     self.tasks.spawn(async move {
                         let conn = incoming.await?;
@@ -81,14 +81,14 @@ impl H3Acceptor for H3QuinnAcceptor {
                         Ok(conn)
                     });
                 }
-                SelectOutputConn2::NewConn(connection) => {
+                SelectOutputConn::NewConn(connection) => {
                     return Ok(Some(connection));
                 }
-                SelectOutputConn2::ConnErr(error) => {
+                SelectOutputConn::ConnErr(error) => {
                     // continue on error
                     tracing::debug!("conn error, ignore: {}", error);
                 }
-                SelectOutputConn2::Done => {
+                SelectOutputConn::Done => {
                     return Ok(None);
                 }
             }
