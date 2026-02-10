@@ -8,7 +8,7 @@ jobs:
     strategy:
       matrix:
         os: [ windows-latest, ubuntu-latest ]
-        rust: [ 1.90.0, 1.92.0 ] 
+        rust: [ 1.90.0, 1.93.0 ] 
       fail-fast: false
     env:
       SCCACHE_GHA_ENABLED: "true"

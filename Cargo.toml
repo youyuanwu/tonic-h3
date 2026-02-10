@@ -37,7 +37,7 @@ http-body-util = "0.1"
 bytes = "1"
 
 # quiche dependencies
-tokio-quiche = { version = "0.13" , default-features = false}
+tokio-quiche = { version = "0.14" , default-features = false}
 futures-util = "0.3"
 http-body = "1"
 
