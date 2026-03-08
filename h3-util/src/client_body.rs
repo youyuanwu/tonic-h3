@@ -8,6 +8,8 @@ where
 {
     s: RequestStream<S, B>,
     data_done: bool,
+    // Dropping this sender cancels the background body send task.
+    _cancel_body_send: Option<tokio::sync::oneshot::Sender<()>>,
 }
 
 impl<S, B> H3IncomingClient<S, B>
@@ -15,10 +17,14 @@ where
     B: Buf,
     S: h3::quic::RecvStream,
 {
-    pub fn new(s: RequestStream<S, B>) -> Self {
+    pub fn new(
+        s: RequestStream<S, B>,
+        cancel_body_send: Option<tokio::sync::oneshot::Sender<()>>,
+    ) -> Self {
         Self {
             s,
             data_done: false,
+            _cancel_body_send: cancel_body_send,
         }
     }
 }
@@ -71,8 +77,9 @@ where
 }
 
 pub async fn send_h3_client_body<S, B>(
-    w: &mut h3::client::RequestStream<<S as h3::quic::BidiStream<Bytes>>::SendStream, Bytes>,
+    mut w: h3::client::RequestStream<<S as h3::quic::BidiStream<Bytes>>::SendStream, Bytes>,
     bd: B,
+    mut cancel: tokio::sync::oneshot::Receiver<()>,
 ) -> Result<(), crate::Error>
 where
     S: h3::quic::BidiStream<hyper::body::Bytes>,
@@ -81,24 +88,28 @@ where
     B::Error: Into<crate::Error>,
 {
     let mut p_b = std::pin::pin!(bd);
-    // let mut sent_trailers = false;
-    while let Some(d) = futures::future::poll_fn(|cx| p_b.as_mut().poll_frame(cx)).await {
-        // send body
+    loop {
+        let frame = tokio::select! {
+            biased;
+            _ = &mut cancel => {
+                tracing::debug!("client body send cancelled");
+                return Ok(());
+            }
+            frame = futures::future::poll_fn(|cx| p_b.as_mut().poll_frame(cx)) => frame,
+        };
+
+        let Some(d) = frame else { break };
         let d = d.map_err(|e| e.into())?;
         if d.is_data() {
             let mut d = d.into_data().ok().unwrap();
             tracing::debug!("client write data");
-            // in most cases the copy is saved by using Bytes.
             w.send_data(d.copy_to_bytes(d.remaining())).await?;
         } else if d.is_trailers() {
             let d = d.into_trailers().ok().unwrap();
             tracing::debug!("client write trailer: {:?}", d);
             w.send_trailers(d).await?;
-            //     sent_trailers = true;
         }
     }
-    // if !sent_trailers {
     w.finish().await?;
-    // }
     Ok(())
 }

@@ -5,6 +5,7 @@ use hyper::{
     body::{Body, Bytes},
     rt::Executor,
 };
+use std::future::Future;
 
 use crate::client_body::H3IncomingClient;
 
@@ -27,12 +28,37 @@ where
     // send header.
     let stream = send_request.send_request(head_req).await?;
 
-    let (mut w, mut r) = stream.split();
-    // send body in backgound
-    executor.execute(async move {
-        // TODO: cancellation?
-        let _ = crate::client_body::send_h3_client_body::<CONN::BS, _>(&mut w, body).await;
-    });
+    let (w, mut r) = stream.split();
+
+    // Cancellation: cancel_tx is stored in H3IncomingClient.
+    // When the response body is dropped, cancel_tx drops, triggering cancellation.
+    let (cancel_tx, cancel_rx) = tokio::sync::oneshot::channel();
+
+    // Build the body send future with owned w and cancel support.
+    let mut body_fut = Box::pin(crate::client_body::send_h3_client_body::<CONN::BS, _>(
+        w, body, cancel_rx,
+    ));
+
+    // Eager poll: try to complete body send without spawning a task.
+    match futures::future::poll_fn(|cx| match body_fut.as_mut().poll(cx) {
+        std::task::Poll::Ready(res) => std::task::Poll::Ready(Some(res)),
+        std::task::Poll::Pending => std::task::Poll::Ready(None),
+    })
+    .await
+    {
+        Some(res) => {
+            // Body completed synchronously — no spawn needed.
+            res?;
+        }
+        None => {
+            // Body still pending — move to background task.
+            executor.execute(async move {
+                if let Err(e) = body_fut.await {
+                    tracing::warn!("h3 client body send failed: {e}");
+                }
+            });
+        }
+    };
 
     // return resp.
     tracing::debug!("recv header");
@@ -43,7 +69,7 @@ where
             tracing::error!("recv header error: {e}");
         })?
         .into_parts();
-    let resp_body = H3IncomingClient::new(r);
+    let resp_body = H3IncomingClient::new(r, Some(cancel_tx));
     tracing::debug!("return resp");
     Ok(hyper::Response::from_parts(resp, resp_body))
 }
