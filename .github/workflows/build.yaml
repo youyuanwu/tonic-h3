@@ -8,7 +8,7 @@ jobs:
     strategy:
       matrix:
         os: [ windows-latest, ubuntu-latest ]
-        rust: [ 1.90.0, 1.93.0 ] 
+        rust: [ 1.90.0, 1.94.0 ] 
       fail-fast: false
     env:
       SCCACHE_GHA_ENABLED: "true"
@@ -38,7 +38,7 @@ jobs:
       if: runner.os == 'Windows'
       uses: lukka/run-vcpkg@v11
       with:
-        vcpkgGitCommitId: e3ed41868d5034bc608eaaa58383cd6ecdbb5ffb
+        vcpkgGitCommitId: 62159a45e18f3a9ac0548628dcaf74fcb60c6ff9 # 2026.02.27
       env:
         VCPKG_BINARY_SOURCES: default,rw
 
