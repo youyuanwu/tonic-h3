@@ -1,10 +1,19 @@
 # h3-util
 
-[h3-util](./h3-util/) contains HTTP/3 server and client utilities used by `axum-h3` and `tonic-h3`.
-See repo [tonic-h3](https://github.com/youyuanwu/tonic-h3) for details.
+HTTP/3 server and client utilities used by [`tonic-h3`](https://github.com/youyuanwu/tonic-h3) and `axum-h3`.
 
-## Get started
-Add deps to your cargo.toml
+Abstracts QUIC transports behind `H3Connector` (client) and `H3Acceptor` (server) traits, with built-in support for multiple backends:
+
+| Feature | Backend |
+|---------|---------|
+| `quinn` | [Quinn](https://github.com/quinn-rs/quinn) |
+| `msquic` | [MsQuic](https://github.com/youyuanwu/msquic-h3) |
+| `s2n-quic` | [s2n-quic](https://github.com/aws/s2n-quic) |
+| `quiche` | [quiche](https://github.com/cloudflare/quiche) |
+
+## Usage
+
 ```toml
-h3-util = { version="*" , default-features = false, features = ["quinn"] }
+[dependencies]
+h3-util = { version = "*", default-features = false, features = ["quinn"] }
 ```

@@ -26,7 +26,7 @@ impl H3MsQuicClientWaiter {
         let prev = waiter.replace(w);
         // The url is unique, so there is at most one connection. The prev can safely drop because we can wait for the new one.
         if prev.is_some() {
-            tracing::debug!("replace existing msquic shutdown waiter");
+            tracing::trace!("replace existing msquic shutdown waiter");
         }
     }
 }
@@ -78,7 +78,7 @@ impl crate::client::H3Connector for H3MsQuicConnector {
         .map_err(crate::Error::from)?;
         let waiter = conn.get_shutdown_waiter();
         self.waiter.replace(waiter);
-        tracing::debug!("client conn started to {}", self.uri);
+        tracing::trace!("client conn started to {}", self.uri);
         Ok(conn)
     }
 }

@@ -8,7 +8,7 @@
 Experimental implementation of running [tonic](https://github.com/hyperium/tonic) grpc on [h3](https://github.com/hyperium/h3), following the proposal: [G2-http3-protocol](https://github.com/grpc/proposal/blob/master/G2-http3-protocol.md)
 
 tonic-h3 is targeted to support all quic transport implementations that integrates with h3. Currently the following are incoporated and tested:
-* [Quinn](https://github.com/quinn-rs/quinn) ([h3-quinn](https://github.com/hyperium/h3/h3-quinn/))
+* [quinn](https://github.com/quinn-rs/quinn) ([h3-quinn](https://github.com/hyperium/h3/h3-quinn/))
 * [s2n-quic](https://github.com/aws/s2n-quic) ([s2n-quic-h3](https://github.com/aws/s2n-quic/tree/main/quic/s2n-quic-h3))
 * [msquic](https://github.com/microsoft/msquic) ([msquic-h3](https://github.com/youyuanwu/msquic-h3)).
 

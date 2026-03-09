@@ -37,7 +37,7 @@ where
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Option<Result<hyper::body::Frame<Self::Data>, Self::Error>>> {
         if !self.data_done {
-            tracing::debug!("server incomming poll_frame recv_data");
+            tracing::trace!("server incomming poll_frame recv_data");
             match futures::ready!(self.s.poll_recv_data(cx)) {
                 Ok(data_opt) => match data_opt {
                     Some(mut data) => {
@@ -54,7 +54,7 @@ where
                 Err(e) => std::task::Poll::Ready(Some(Err(e))),
             }
         } else {
-            tracing::debug!("server incomming poll_frame recv_trailers");
+            tracing::trace!("server incomming poll_frame recv_trailers");
             match futures::ready!(self.s.poll_recv_trailers(cx))? {
                 Some(tr) => std::task::Poll::Ready(Some(Ok(hyper::body::Frame::trailers(tr)))),
                 None => std::task::Poll::Ready(None),
@@ -88,12 +88,12 @@ where
         let d = d.map_err(crate::Error::from)?;
         if d.is_data() {
             let mut d = d.into_data().ok().unwrap();
-            tracing::debug!("serving request write data");
+            tracing::trace!("serving request write data");
             // Bytes optimizes the shallow copy.
             w.send_data(d.copy_to_bytes(d.remaining())).await?;
         } else if d.is_trailers() {
             let d = d.into_trailers().ok().unwrap();
-            tracing::debug!("serving request write trailer: {:?}", d);
+            tracing::trace!("serving request write trailer: {:?}", d);
             w.send_trailers(d).await?;
         }
     }

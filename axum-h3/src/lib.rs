@@ -30,9 +30,9 @@ where
     let h_svc = hyper_util::service::TowerToHyperService::new(svc);
 
     let mut sig = std::pin::pin!(signal);
-    tracing::debug!("loop start");
+    tracing::trace!("loop start");
     loop {
-        tracing::debug!("loop");
+        tracing::trace!("loop");
         // get the next stream to run http on
         let conn = tokio::select! {
             res = acceptor.accept() =>{
@@ -45,13 +45,13 @@ where
             }
             }
             _ = &mut sig =>{
-                tracing::debug!("cancellation triggered");
+                tracing::trace!("cancellation triggered");
                 return Ok(());
             }
         };
 
         let Some(conn) = conn else {
-            tracing::debug!("acceptor end of conn");
+            tracing::trace!("acceptor end of conn");
             return Ok(());
         };
 
@@ -62,7 +62,7 @@ where
             let mut conn = match h3::server::Connection::new(conn).await {
                 Ok(c) => c,
                 Err(e) => {
-                    tracing::debug!("server connection failed: {}", e);
+                    tracing::warn!("server connection failed: {}", e);
                     return;
                 }
             };
@@ -71,12 +71,16 @@ where
                     Ok(req) => match req {
                         Some(r) => r,
                         None => {
-                            tracing::debug!("server connection ended:");
+                            tracing::trace!("server connection ended:");
                             break;
                         }
                     },
                     Err(e) => {
-                        tracing::debug!("server connection accept failed: {}", e);
+                        if e.is_h3_no_error() {
+                            tracing::trace!("server connection ended with h3 no error:");
+                        } else {
+                            tracing::warn!("server connection accept failed: {}", e);
+                        }
                         break;
                     }
                 };
@@ -85,12 +89,12 @@ where
                     let (req, stream) = match resolver.resolve_request().await {
                         Ok(req) => req,
                         Err(e) => {
-                            tracing::debug!("fail resolve request {e:#?}");
+                            tracing::warn!("fail resolve request {e:#?}");
                             return;
                         }
                     };
                     if let Err(e) = serve_request::<AC, _, _>(req, stream, h_svc_cp.clone()).await {
-                        tracing::debug!("server request failed: {}", e);
+                        tracing::warn!("server request failed: {}", e);
                     }
                 });
             }
@@ -119,24 +123,24 @@ where
     <BD as Body>::Error: Into<h3_util::Error> + std::error::Error + Send + Sync,
     <BD as Body>::Data: Send + Sync,
 {
-    tracing::debug!("serving request");
+    tracing::trace!("serving request");
     let (parts, _) = request.into_parts();
     let (mut w, r) = stream.split();
 
     let req = Request::from_parts(parts, H3IncomingServer::new(r));
-    tracing::debug!("serving request call service");
+    tracing::trace!("serving request call service");
     let res = service.call(req).await?;
 
     let (res_h, res_b) = res.into_parts();
 
     // write header
-    tracing::debug!("serving request write header");
+    tracing::trace!("serving request write header");
     w.send_response(Response::from_parts(res_h, ())).await?;
 
     // write body or trailer.
     h3_util::server_body::send_h3_server_body::<BD, AC::BS>(&mut w, res_b).await?;
 
-    tracing::debug!("serving request end");
+    tracing::trace!("serving request end");
     Ok(())
 }
 

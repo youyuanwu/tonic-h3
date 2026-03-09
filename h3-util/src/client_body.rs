@@ -92,7 +92,7 @@ where
         let frame = tokio::select! {
             biased;
             _ = &mut cancel => {
-                tracing::debug!("client body send cancelled");
+                tracing::trace!("client body send cancelled");
                 return Ok(());
             }
             frame = futures::future::poll_fn(|cx| p_b.as_mut().poll_frame(cx)) => frame,
@@ -102,11 +102,11 @@ where
         let d = d.map_err(|e| e.into())?;
         if d.is_data() {
             let mut d = d.into_data().ok().unwrap();
-            tracing::debug!("client write data");
+            tracing::trace!("client write data");
             w.send_data(d.copy_to_bytes(d.remaining())).await?;
         } else if d.is_trailers() {
             let d = d.into_trailers().ok().unwrap();
-            tracing::debug!("client write trailer: {:?}", d);
+            tracing::trace!("client write trailer: {:?}", d);
             w.send_trailers(d).await?;
         }
     }

@@ -35,7 +35,7 @@ impl crate::client::H3Connector for H3S2nConnector {
         // connect to dns resolved addr.
         let mut conn_err = std::io::Error::from(std::io::ErrorKind::AddrNotAvailable).into();
         let addrs = crate::client::dns_resolve(&self.uri).await?;
-        tracing::debug!("connecting to server: {:?}", addrs);
+        tracing::trace!("connecting to server: {:?}", addrs);
         for addr in addrs {
             let connect =
                 s2n_quic::client::Connect::new(addr).with_server_name(self.server_name.as_str());

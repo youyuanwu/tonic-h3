@@ -23,7 +23,7 @@ where
     let (parts, body) = req.into_parts();
     let head_req = hyper::Request::from_parts(parts, ());
     // send header
-    tracing::debug!("sending h3 req header: {:?}", head_req);
+    tracing::trace!("sending h3 req header: {:?}", head_req);
 
     // send header.
     let stream = send_request.send_request(head_req).await?;
@@ -61,7 +61,7 @@ where
     };
 
     // return resp.
-    tracing::debug!("recv header");
+    tracing::trace!("recv header");
     let (resp, _) = r
         .recv_response()
         .await
@@ -70,7 +70,7 @@ where
         })?
         .into_parts();
     let resp_body = H3IncomingClient::new(r, Some(cancel_tx));
-    tracing::debug!("return resp");
+    tracing::trace!("return resp");
     Ok(hyper::Response::from_parts(resp, resp_body))
 }
 
@@ -132,7 +132,7 @@ where
             // check if the driver is still running
             match rx.try_recv() {
                 Ok(()) => {
-                    tracing::debug!("driver is closed, reconnecting.");
+                    tracing::trace!("driver is closed, reconnecting.");
                     self.send_request = None;
                     self.driver_rx = None;
                 }
@@ -140,7 +140,7 @@ where
                     // driver is still running
                 }
                 Err(tokio::sync::oneshot::error::TryRecvError::Closed) => {
-                    tracing::debug!("driver is closed, reconnecting.");
+                    tracing::trace!("driver is closed, reconnecting.");
                     self.send_request = None;
                     self.driver_rx = None;
                 }
@@ -149,7 +149,7 @@ where
 
         // ready for send.
         if self.send_request.is_some() {
-            tracing::debug!("exp poll_ready cache hit.");
+            tracing::trace!("exp poll_ready cache hit.");
             assert!(self.make_send_request_fut.is_none());
             assert!(self.driver_rx.is_some());
             return std::task::Poll::Ready(Ok(()));
@@ -165,7 +165,7 @@ where
                 let (tx, rx) = tokio::sync::oneshot::channel();
                 executor.execute(async move {
                     let res = std::future::poll_fn(|cx| driver.poll_close(cx)).await;
-                    tracing::debug!("h3 driver ended: {res:?}");
+                    tracing::trace!("h3 driver ended: {res:?}");
                     let _ = tx.send(());
                 });
                 Ok((send_request, rx))

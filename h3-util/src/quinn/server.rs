@@ -6,20 +6,20 @@ async fn select_conn(
     incoming: &h3_quinn::Endpoint,
     tasks: &mut tokio::task::JoinSet<Result<h3_quinn::Connection, crate::Error>>,
 ) -> SelectOutputConn {
-    tracing::debug!("select_conn");
+    tracing::trace!("select_conn");
 
     let incoming_stream_future = async {
-        tracing::debug!("endpoint waiting accept");
+        tracing::trace!("endpoint waiting accept");
         match incoming.accept().await {
             Some(i) => {
-                tracing::debug!("endpoint accept incoming conn");
+                tracing::trace!("endpoint accept incoming conn");
                 SelectOutputConn::NewIncoming(i)
             }
             None => SelectOutputConn::Done, // shutdown.
         }
     };
     if tasks.is_empty() {
-        tracing::debug!("endpoint wait for new incoming");
+        tracing::trace!("endpoint wait for new incoming");
         return incoming_stream_future.await;
     }
     tokio::select! {
@@ -73,11 +73,11 @@ impl H3Acceptor for H3QuinnAcceptor {
         loop {
             match select_conn(&self.ep, &mut self.tasks).await {
                 SelectOutputConn::NewIncoming(incoming) => {
-                    tracing::debug!("poll conn new incoming");
+                    tracing::trace!("poll conn new incoming");
                     self.tasks.spawn(async move {
                         let conn = incoming.await?;
                         let conn = h3_quinn::Connection::new(conn);
-                        tracing::debug!("New incoming conn.");
+                        tracing::trace!("New incoming conn.");
                         Ok(conn)
                     });
                 }
@@ -86,7 +86,7 @@ impl H3Acceptor for H3QuinnAcceptor {
                 }
                 SelectOutputConn::ConnErr(error) => {
                     // continue on error
-                    tracing::debug!("conn error, ignore: {}", error);
+                    tracing::warn!("conn error, ignore: {}", error);
                 }
                 SelectOutputConn::Done => {
                     return Ok(None);
