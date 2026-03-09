@@ -40,6 +40,12 @@ package helloworld;
 service Greeter {
   // Sends a greeting
   rpc SayHello (HelloRequest) returns (HelloReply) {}
+  // Server streaming
+  rpc SayHelloServerStream (HelloRequest) returns (stream HelloReply) {}
+  // Client streaming
+  rpc SayHelloClientStream (stream HelloRequest) returns (HelloReply) {}
+  // Bidirectional streaming
+  rpc SayHelloBidiStream (stream HelloRequest) returns (stream HelloReply) {}
 }
 
 // The request message containing the user's name.

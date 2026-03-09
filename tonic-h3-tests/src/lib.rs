@@ -44,6 +44,62 @@ impl crate::greeter_server::Greeter for HelloWorldService {
             message: format!("hello {name}"),
         }))
     }
+
+    type SayHelloServerStreamStream =
+        futures::stream::Iter<std::vec::IntoIter<Result<HelloReply, tonic::Status>>>;
+
+    async fn say_hello_server_stream(
+        &self,
+        req: tonic::Request<HelloRequest>,
+    ) -> Result<tonic::Response<Self::SayHelloServerStreamStream>, tonic::Status> {
+        let name = req.into_inner().name;
+        tracing::debug!("say_hello_server_stream: {}", name);
+        let replies = vec![
+            Ok(HelloReply {
+                message: format!("hello {name} 1"),
+            }),
+            Ok(HelloReply {
+                message: format!("hello {name} 2"),
+            }),
+            Ok(HelloReply {
+                message: format!("hello {name} 3"),
+            }),
+        ];
+        Ok(tonic::Response::new(futures::stream::iter(replies)))
+    }
+
+    async fn say_hello_client_stream(
+        &self,
+        req: tonic::Request<tonic::Streaming<HelloRequest>>,
+    ) -> Result<tonic::Response<HelloReply>, tonic::Status> {
+        let mut stream = req.into_inner();
+        let mut names = Vec::new();
+        while let Some(request) = stream.message().await? {
+            names.push(request.name);
+        }
+        tracing::debug!("say_hello_client_stream: {:?}", names);
+        Ok(tonic::Response::new(HelloReply {
+            message: format!("hello {}", names.join(", ")),
+        }))
+    }
+
+    type SayHelloBidiStreamStream =
+        futures::stream::Iter<std::vec::IntoIter<Result<HelloReply, tonic::Status>>>;
+
+    async fn say_hello_bidi_stream(
+        &self,
+        req: tonic::Request<tonic::Streaming<HelloRequest>>,
+    ) -> Result<tonic::Response<Self::SayHelloBidiStreamStream>, tonic::Status> {
+        let mut stream = req.into_inner();
+        let mut replies = Vec::new();
+        while let Some(request) = stream.message().await? {
+            tracing::debug!("say_hello_bidi_stream: {}", request.name);
+            replies.push(Ok(HelloReply {
+                message: format!("hello {}", request.name),
+            }));
+        }
+        Ok(tonic::Response::new(futures::stream::iter(replies)))
+    }
 }
 
 pub fn make_test_cert_rustls(

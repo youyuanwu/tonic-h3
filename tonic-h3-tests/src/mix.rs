@@ -66,6 +66,53 @@ async fn h3_test(
 
             tracing::debug!("RESPONSE={:?}", response);
         }
+        // server streaming test
+        {
+            let request = tonic::Request::new(crate::HelloRequest {
+                name: "StreamTonic".into(),
+            });
+            let response = client.say_hello_server_stream(request).await.unwrap();
+            let mut stream = response.into_inner();
+            let mut count = 0;
+            while let Some(reply) = stream.message().await.unwrap() {
+                tracing::debug!("SERVER_STREAM RESPONSE={:?}", reply);
+                count += 1;
+            }
+            assert_eq!(count, 3);
+        }
+        // client streaming test
+        {
+            let requests = futures::stream::iter(vec![
+                crate::HelloRequest {
+                    name: "Client1".into(),
+                },
+                crate::HelloRequest {
+                    name: "Client2".into(),
+                },
+            ]);
+            let response = client.say_hello_client_stream(requests).await.unwrap();
+            tracing::debug!("CLIENT_STREAM RESPONSE={:?}", response);
+            assert!(response.into_inner().message.contains("Client1"));
+        }
+        // bidi streaming test
+        {
+            let requests = futures::stream::iter(vec![
+                crate::HelloRequest {
+                    name: "Bidi1".into(),
+                },
+                crate::HelloRequest {
+                    name: "Bidi2".into(),
+                },
+            ]);
+            let response = client.say_hello_bidi_stream(requests).await.unwrap();
+            let mut stream = response.into_inner();
+            let mut count = 0;
+            while let Some(reply) = stream.message().await.unwrap() {
+                tracing::debug!("BIDI_STREAM RESPONSE={:?}", reply);
+                count += 1;
+            }
+            assert_eq!(count, 2);
+        }
     }
     tracing::debug!("client wait idle");
     client_endpoint.wait_idle().await;
