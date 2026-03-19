@@ -182,7 +182,10 @@ where
                     self.make_send_request_fut = None;
                     Ok(())
                 }
-                Err(e) => Err(e),
+                Err(e) => {
+                    self.make_send_request_fut = None;
+                    Err(e)
+                }
             })
     }
 

@@ -23,6 +23,9 @@ mod reconnect;
 mod mix;
 
 #[cfg(test)]
+mod cert_error;
+
+#[cfg(test)]
 mod quiche;
 
 pub mod cert_gen;
