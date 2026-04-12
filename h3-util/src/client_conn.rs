@@ -100,14 +100,14 @@ impl<CONN> RequestSender<CONN>
 where
     CONN: H3Connector,
 {
-    pub fn new(conn: CONN, uri: Uri) -> Self {
+    pub fn new(conn: CONN, uri: Uri, executor: SharedExec) -> Self {
         Self {
             conn,
             send_request: None,
             driver_rx: None,
             make_send_request_fut: None,
             uri,
-            executor: SharedExec::tokio(), // TODO: expose the executor for user.
+            executor,
         }
     }
 }

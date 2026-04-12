@@ -13,7 +13,7 @@ async fn main() {
         "localhost".to_string(),
         client_endpoint.clone(),
     );
-    let channel = tonic_h3::H3Channel::new(cc, uri.clone());
+    let channel = tonic_h3::H3Channel::new(cc, uri.clone(), h3_util::executor::SharedExec::tokio());
 
     tracing::debug!("making greeter client.");
     let mut client = tonic_h3_test::greeter_client::GreeterClient::new(channel);

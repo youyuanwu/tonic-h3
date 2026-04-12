@@ -43,7 +43,11 @@ async fn axum_test() {
             "localhost".to_string(),
             client_endpoint.clone(),
         );
-        let channel = h3_util::client::H3Connection::new(cc, uri.clone());
+        let channel = h3_util::client::H3Connection::new(
+            cc,
+            uri.clone(),
+            h3_util::executor::SharedExec::tokio(),
+        );
         let mut client = h3_util::client::H3Client::new(channel);
         let req = Request::builder()
             .method("GET")
@@ -89,7 +93,7 @@ async fn test_client(uri: Uri) {
             uri.host().unwrap().to_string(),
             client_endpoint.clone(),
         );
-        let channel = h3_util::client::H3Connection::new(cc, uri.clone());
+        let channel = h3_util::client::H3Connection::new(cc, uri.clone(), h3_util::executor::SharedExec::tokio());
         let mut client = h3_util::client::H3Client::new(channel);
         let req = Request::builder()
             .method("GET")
