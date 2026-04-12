@@ -51,3 +51,5 @@ pub mod msquic {
 pub mod s2n {
     pub use h3_util::s2n::*;
 }
+
+pub use h3_util::executor::SharedExec;
