@@ -32,7 +32,7 @@
 
 mod client;
 pub mod server;
-pub use client::H3Channel;
+pub use {client::H3Channel, client::H3NonBufferedChannel};
 
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
 

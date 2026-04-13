@@ -14,8 +14,7 @@ async fn main() {
         "localhost".to_string(),
         client_endpoint.clone(),
     );
-    let channel =
-        h3_util::client::H3Channel::new(cc, uri.clone(), h3_util::executor::SharedExec::tokio());
+    let channel = h3_util::client::H3Channel::new(cc, uri.clone(), None);
 
     tracing::debug!("making greeter client.");
     let mut join_set = JoinSet::new();

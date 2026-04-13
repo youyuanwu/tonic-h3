@@ -28,7 +28,7 @@ async fn quinn_cert_error_no_panic() {
         "localhost".to_string(),
         strict_client_endpoint.clone(),
     );
-    let channel = tonic_h3::H3Channel::new(cc, uri, h3_util::executor::SharedExec::tokio());
+    let channel = tonic_h3::H3Channel::new(cc, uri, None);
     let mut client = crate::greeter_client::GreeterClient::new(channel);
 
     // First call should fail with a TLS error, not a panic.

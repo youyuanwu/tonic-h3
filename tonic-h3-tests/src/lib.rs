@@ -622,8 +622,7 @@ mod doc_example {
             "localhost".to_string(),
             client_endpoint.clone(),
         );
-        let channel =
-            tonic_h3::H3Channel::new(cc, uri.clone(), h3_util::executor::SharedExec::tokio());
+        let channel = tonic_h3::H3Channel::new(cc, uri.clone(), None);
         let mut client = crate::greeter_client::GreeterClient::new(channel);
         let request = tonic::Request::new(crate::HelloRequest {
             name: "Tonic".into(),

@@ -19,10 +19,7 @@ use tower::{
 };
 
 use crate::client_conn;
-use crate::{
-    client_body::H3IncomingClient,
-    executor::SharedExec,
-};
+use crate::{client_body::H3IncomingClient, executor::SharedExec};
 
 const DEFAULT_BUFFER_SIZE: usize = 1024;
 
@@ -70,6 +67,7 @@ where
     B::Data: Send,
     B::Error: Into<crate::Error> + Send,
 {
+    #[allow(clippy::type_complexity)]
     svc: Buffer<
         Request<B>,
         BoxFuture<'static, Result<Response<H3IncomingClient<C::RS, Bytes>>, crate::Error>>,
@@ -94,6 +92,7 @@ pub struct ResponseFuture<C>
 where
     C: H3Connector,
 {
+    #[allow(clippy::type_complexity)]
     inner: BufferResponseFuture<
         BoxFuture<'static, Result<Response<H3IncomingClient<C::RS, Bytes>>, crate::Error>>,
     >,
@@ -106,8 +105,9 @@ where
     B::Data: Send,
     B::Error: Into<crate::Error> + Send,
 {
-    pub fn new(connector: C, uri: Uri, executor: SharedExec) -> Self {
-        let svc = H3Connection::new(connector, uri, executor.clone());
+    pub fn new(connector: C, uri: Uri, executor: Option<SharedExec>) -> Self {
+        let executor = executor.unwrap_or_else(SharedExec::tokio);
+        let svc = H3Connection::new(connector, uri, Some(executor.clone()));
         let (svc, worker) = Buffer::pair(svc, DEFAULT_BUFFER_SIZE);
         executor.execute(worker);
         Self { svc }
@@ -156,7 +156,7 @@ where
     B::Error: Into<crate::Error> + Send,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Channel").finish()
+        f.debug_struct("H3Channel").finish()
     }
 }
 
@@ -191,7 +191,8 @@ where
     B::Data: Send,
     B::Error: Into<crate::Error> + Send,
 {
-    pub fn new(connector: C, uri: Uri, executor: SharedExec) -> Self {
+    pub fn new(connector: C, uri: Uri, executor: Option<SharedExec>) -> Self {
+        let executor = executor.unwrap_or_else(SharedExec::tokio);
         let sender = client_conn::RequestSender::new(connector, uri, executor);
         Self {
             inner: BoxService::new(sender),
