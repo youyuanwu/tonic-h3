@@ -64,7 +64,7 @@ mod quinn_client {
                 "localhost".to_string(),
                 client_endpoint.clone(),
             );
-            let channel = h3_util::client::H3Connection::new(cc, uri.clone());
+            let channel = h3_util::client::H3Connection::new(cc, uri.clone(), None);
             let mut client = h3_util::client::H3Client::new(channel);
             let req = Request::builder()
                 .method("GET")

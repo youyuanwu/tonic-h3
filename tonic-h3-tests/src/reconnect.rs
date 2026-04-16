@@ -48,7 +48,7 @@ async fn reconnect_test<T: H3Connector>(
 
     let client_token = CancellationToken::new();
     let (h_cli, cc) = run_client(uri.clone(), client_token.clone());
-    let channel = tonic_h3::H3Channel::new(cc, uri);
+    let channel = tonic_h3::H3Channel::new(cc, uri, None);
     // Client drop is required to end connection. drive will end after connection end.
     // Or client endpoint needs to be closed.
     let mut client = crate::greeter_client::GreeterClient::new(channel);

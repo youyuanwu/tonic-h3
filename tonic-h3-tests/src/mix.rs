@@ -47,7 +47,7 @@ async fn h3_test(
             "localhost".to_string(),
             client_endpoint.clone(),
         );
-        let channel = tonic_h3::H3Channel::new(cc, uri.clone());
+        let channel = tonic_h3::H3Channel::new(cc, uri.clone(), None);
         let mut client = crate::greeter_client::GreeterClient::new(channel);
 
         {
@@ -125,7 +125,7 @@ async fn h3_test(
             "localhost".to_string(),
             s2n_ep.clone(),
         );
-        let channel = tonic_h3::H3Channel::new(cc, uri.clone());
+        let channel = tonic_h3::H3Channel::new(cc, uri.clone(), None);
         let mut client = crate::greeter_client::GreeterClient::new(channel);
         {
             let request = tonic::Request::new(crate::HelloRequest {
@@ -150,6 +150,7 @@ async fn h3_test(
                 msquic_waiter.clone(),
             ),
             uri.clone(),
+            None,
         );
         let mut client = crate::greeter_client::GreeterClient::new(channel);
         {

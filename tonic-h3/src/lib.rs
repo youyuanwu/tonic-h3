@@ -32,7 +32,7 @@
 
 mod client;
 pub mod server;
-pub use client::H3Channel;
+pub use {client::H3Channel, client::H3NonBufferedChannel};
 
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
 
@@ -51,3 +51,5 @@ pub mod msquic {
 pub mod s2n {
     pub use h3_util::s2n::*;
 }
+
+pub use h3_util::executor::SharedExec;
