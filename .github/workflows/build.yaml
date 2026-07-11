@@ -110,5 +110,7 @@ jobs:
       uses: codecov/codecov-action@v7
       with:
         files: ./codecov.json
-        fail_ci_if_error: true
+        # Dependabot (and forked) PRs don't have access to secrets, so the token
+        # is empty there. Only fail CI on upload errors when a token is available.
+        fail_ci_if_error: ${{ secrets.CODECOV_TOKEN != '' }}
         token: ${{ secrets.CODECOV_TOKEN }}
