@@ -108,7 +108,14 @@ jobs:
 
     - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v7
+      # Expose the token via env so it is picked up on both regular and
+      # Dependabot runs. For Dependabot PRs this requires CODECOV_TOKEN to be
+      # added as a Dependabot secret (Settings > Secrets and variables >
+      # Dependabot); otherwise it is empty there.
+      env:
+        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       with:
         files: ./codecov.json
-        fail_ci_if_error: true
-        token: ${{ secrets.CODECOV_TOKEN }}
+        # Only fail CI on upload errors when a token is available, so Dependabot
+        # PRs without the secret configured don't break the build.
+        fail_ci_if_error: ${{ secrets.CODECOV_TOKEN != '' }}
