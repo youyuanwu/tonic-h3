@@ -17,7 +17,7 @@ jobs:
       CMAKE_CXX_COMPILER_LAUNCHER: "sccache"
 
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v7
 
     - name: Run sccache-cache
       uses: mozilla-actions/sccache-action@v0.0.10
