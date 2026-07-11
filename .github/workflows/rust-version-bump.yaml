@@ -1,0 +1,58 @@
+name: rust-version-bump
+
+# Dependabot does not update the toolchain channel in rust-toolchain.toml,
+# so this workflow checks for a newer stable Rust release on a schedule and
+# opens a pull request bumping the pinned version when one is available.
+
+on:
+  schedule:
+    - cron: "0 6 * * 1" # every Monday at 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Determine latest stable Rust version
+        id: latest
+        run: |
+          latest=$(curl -sSf https://static.rust-lang.org/dist/channel-rust-stable.toml \
+            | grep -m1 '^version = ' \
+            | sed -E 's/version = "([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
+          if [ -z "$latest" ]; then
+            echo "Failed to determine latest stable Rust version" >&2
+            exit 1
+          fi
+          echo "version=$latest" >> "$GITHUB_OUTPUT"
+
+      - name: Read current pinned version
+        id: current
+        run: |
+          current=$(grep -E '^channel = ' rust-toolchain.toml \
+            | sed -E 's/channel = "(.*)"/\1/')
+          echo "version=$current" >> "$GITHUB_OUTPUT"
+
+      - name: Update rust-toolchain.toml
+        if: steps.latest.outputs.version != steps.current.outputs.version
+        run: |
+          sed -i -E 's/^channel = ".*"/channel = "${{ steps.latest.outputs.version }}"/' rust-toolchain.toml
+
+      - name: Create pull request
+        if: steps.latest.outputs.version != steps.current.outputs.version
+        uses: peter-evans/create-pull-request@v7
+        with:
+          commit-message: "Bump Rust toolchain to ${{ steps.latest.outputs.version }}"
+          title: "Bump Rust toolchain to ${{ steps.latest.outputs.version }}"
+          body: |
+            Automated update of the pinned Rust toolchain in `rust-toolchain.toml`.
+
+            - Previous: `${{ steps.current.outputs.version }}`
+            - New: `${{ steps.latest.outputs.version }}`
+          branch: "rust-version-bump/${{ steps.latest.outputs.version }}"
+          base: main
