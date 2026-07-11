@@ -84,7 +84,7 @@ jobs:
     - name: Run cargo clippy
       run: cargo +${{ matrix.rust }} clippy --all-targets -- -D warnings
 
-    - uses: actions/setup-dotnet@v4
+    - uses: actions/setup-dotnet@v5
       with:
         dotnet-version: '8.x'
     
