@@ -107,7 +107,7 @@ jobs:
       run: cargo +${{ matrix.rust }} llvm-cov report --summary-only --ignore-filename-regex "tonic-h3-tests.*|external.*"
 
     - name: Upload coverage reports to Codecov
-      uses: codecov/codecov-action@v5
+      uses: codecov/codecov-action@v7
       with:
         files: ./codecov.json
         fail_ci_if_error: true
