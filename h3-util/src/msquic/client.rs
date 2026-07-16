@@ -2,32 +2,46 @@ use std::sync::Arc;
 
 use hyper::Uri;
 use msquic_h3::msquic::{Configuration, Registration};
+use tokio::sync::watch;
 
-/// Wait for connection to finish in the connector.
+/// Wait for connections to finish in the connector.
 /// Must be called before dropping the connector, otherwise there might be deadlock
 /// when closing registration while connection is still alive. msquic will use mutex and block
 /// rust runtime.
-#[derive(Clone, Default)]
+///
+/// This tracks every connection created by the connector (including reconnects),
+/// so `wait_shutdown` only returns once all of them are fully shut down.
+#[derive(Clone)]
 pub struct H3MsQuicClientWaiter {
-    waiter: Arc<std::sync::Mutex<Option<msquic_h3::ConnectionShutdownWaiter>>>,
+    /// Number of connections that have not yet fully shut down.
+    active: watch::Sender<usize>,
+}
+
+impl Default for H3MsQuicClientWaiter {
+    fn default() -> Self {
+        let (active, _rx) = watch::channel(0);
+        Self { active }
+    }
 }
 
 impl H3MsQuicClientWaiter {
-    /// If not connection it returns immediately..
+    /// Wait for all connections created by the connector to fully shut down.
+    /// Returns immediately if there are no active connections.
     pub async fn wait_shutdown(&self) {
-        let w = self.waiter.lock().unwrap().take();
-        if let Some(w) = w {
-            w.wait().await;
-        }
+        let mut rx = self.active.subscribe();
+        // Wait until the active connection count drops back to zero.
+        let _ = rx.wait_for(|&n| n == 0).await;
     }
 
-    fn replace(&self, w: msquic_h3::ConnectionShutdownWaiter) {
-        let mut waiter = self.waiter.lock().unwrap();
-        let prev = waiter.replace(w);
-        // The url is unique, so there is at most one connection. The prev can safely drop because we can wait for the new one.
-        if prev.is_some() {
-            tracing::trace!("replace existing msquic shutdown waiter");
-        }
+    /// Track a connection's shutdown: increment the active count and spawn a
+    /// task that decrements it once the connection is fully shut down.
+    fn track(&self, waiter: msquic_h3::ConnectionShutdownWaiter) {
+        self.active.send_modify(|n| *n += 1);
+        let active = self.active.clone();
+        tokio::spawn(async move {
+            waiter.wait().await;
+            active.send_modify(|n| *n -= 1);
+        });
     }
 }
 
@@ -77,7 +91,7 @@ impl crate::client::H3Connector for H3MsQuicConnector {
         .await
         .map_err(crate::Error::from)?;
         let waiter = conn.get_shutdown_waiter();
-        self.waiter.replace(waiter);
+        self.waiter.track(waiter);
         tracing::trace!("client conn started to {}", self.uri);
         Ok(conn)
     }
