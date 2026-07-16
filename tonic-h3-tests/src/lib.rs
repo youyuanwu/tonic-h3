@@ -1,6 +1,6 @@
 use std::{net::SocketAddr, sync::Arc};
 
-use h3_util::msquic::msquic_h3::msquic;
+use h3_util::msquic::msquic_h3::{self, msquic};
 use h3_util::quinn::h3_quinn::quinn::{self};
 use h3_util::{client::H3Connector, s2n::s2n_quic, server::H3Acceptor};
 use http::Uri;
@@ -208,10 +208,10 @@ pub mod msquic_util {
     use std::net::SocketAddr;
 
     use h3_util::msquic::msquic_h3::{
-        Listener,
+        Listener, Registration,
         msquic::{
-            self, BufferRef, Configuration, Credential, CredentialConfig, CredentialFlags,
-            Registration, RegistrationConfig, Settings,
+            self, BufferRef, Credential, CredentialConfig, CredentialFlags, RegistrationConfig,
+            Settings,
         },
     };
     use h3_util::msquic::server::H3MsQuicAcceptor;
@@ -295,7 +295,7 @@ pub mod msquic_util {
 
         let app_name = String::from("testapp_server");
         let reg = Registration::new(&RegistrationConfig::default().set_app_name(app_name)).unwrap();
-        let config = Configuration::open(&reg, &alpn, Some(&settings)).unwrap();
+        let config = reg.open_configuration(&alpn, Some(&settings)).unwrap();
 
         let cred_config = CredentialConfig::new()
             .set_credential_flags(CredentialFlags::NO_CERTIFICATE_VALIDATION)
@@ -358,13 +358,7 @@ pub mod msquic_util {
     ) {
         let (reg, config) = crate::make_test_msquic_client_parts();
 
-        let msquic_waiter = h3_util::msquic::client::H3MsQuicClientWaiter::default();
-        let cc = h3_util::msquic::client::H3MsQuicConnector::new(
-            config,
-            reg.clone(),
-            uri.clone(),
-            msquic_waiter.clone(),
-        );
+        let cc = h3_util::msquic::client::H3MsQuicConnector::new(config, reg.clone(), uri.clone());
 
         let h = tokio::spawn(async move {
             token.cancelled().await;
@@ -372,9 +366,9 @@ pub mod msquic_util {
             // signify to close all connections on this registration.
             reg.shutdown();
             tracing::debug!("client registration shutdown completed.");
-            // TODO: Sometimes the test is still stuck here.
-            msquic_waiter.wait_shutdown().await;
-            // If connections are not yet closed this will stuck.
+            // Wait for all connections to release the registration rundown so the
+            // subsequent drop (RegistrationClose) does not block the runtime.
+            reg.wait_idle().await;
             std::mem::drop(reg);
             tracing::debug!("client registration dropped.");
         });
@@ -498,10 +492,11 @@ pub fn make_test_s2n_client_endpoint() -> s2n_quic::Client {
         .unwrap()
 }
 
-pub fn make_test_msquic_client_parts() -> (Arc<msquic::Registration>, Arc<msquic::Configuration>) {
+pub fn make_test_msquic_client_parts() -> (Arc<msquic_h3::Registration>, Arc<msquic::Configuration>)
+{
     let app_name = String::from("testapp_client");
-    let config = msquic::RegistrationConfig::new().set_app_name(app_name);
-    let reg = msquic::Registration::new(&config).unwrap();
+    let reg_config = msquic::RegistrationConfig::new().set_app_name(app_name);
+    let reg = msquic_h3::Registration::new(&reg_config).unwrap();
 
     let alpn = msquic::BufferRef::from("h3");
     // create an client
@@ -510,7 +505,9 @@ pub fn make_test_msquic_client_parts() -> (Arc<msquic::Registration>, Arc<msquic
         .set_IdleTimeoutMs(1000)
         .set_PeerBidiStreamCount(10)
         .set_PeerUnidiStreamCount(10);
-    let client_config = msquic::Configuration::open(&reg, &[alpn], Some(&client_settings)).unwrap();
+    let client_config = reg
+        .open_configuration(&[alpn], Some(&client_settings))
+        .unwrap();
     {
         let cred_config = msquic::CredentialConfig::new_client()
             .set_credential_flags(msquic::CredentialFlags::NO_CERTIFICATE_VALIDATION);

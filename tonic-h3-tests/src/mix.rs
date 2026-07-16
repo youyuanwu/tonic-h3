@@ -140,15 +140,9 @@ async fn h3_test(
     // test msquic client
     // reg should be the last thing to drop, otherwise it will wait for other handle to drop and deadlock.
     let (reg, config) = crate::make_test_msquic_client_parts();
-    let msquic_waiter = h3_util::msquic::client::H3MsQuicClientWaiter::default();
     {
         let channel = tonic_h3::H3Channel::new(
-            h3_util::msquic::client::H3MsQuicConnector::new(
-                config,
-                reg.clone(),
-                uri.clone(),
-                msquic_waiter.clone(),
-            ),
+            h3_util::msquic::client::H3MsQuicConnector::new(config, reg.clone(), uri.clone()),
             uri.clone(),
             None,
         );
@@ -160,10 +154,14 @@ async fn h3_test(
             let response = client.say_hello(request).await.unwrap();
             tracing::debug!("RESPONSE={:?}", response);
         }
-        // trigger reg shutdown and wait for connection to close.
+        // Trigger connection shutdown. The client stack (channel + client) is
+        // dropped at the end of this scope, which closes the connection and
+        // releases the registration rundown.
         reg.shutdown();
-        msquic_waiter.wait_shutdown().await;
     }
+    // wait_idle resolves on Connection *drop*, so it must run after the client
+    // stack above is gone. Then dropping reg (RegistrationClose) is non-blocking.
+    reg.wait_idle().await;
     token.cancel();
     h_svr.await.unwrap();
 }

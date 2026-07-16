@@ -81,6 +81,70 @@ the last connection and `drop(reg)` could still block on a straggler — the
 source of the intermittent "sometimes stuck here" hangs in the tests. The
 counter tracks all connections, closing that race.
 
+## The connector `Drop` hack
+
+`H3MsQuicConnector` holds `Option<Arc<Configuration>>` and
+`Option<Arc<Registration>>` and has a hand-written `Drop`:
+
+```rust
+impl Drop for H3MsQuicConnector {
+    fn drop(&mut self) {
+        std::mem::drop(self.config.take());     // (1) Configuration before Registration
+        let reg = self.reg.take();
+        if let Some(reg) = reg {
+            let c = Arc::strong_count(&reg);
+            assert_ne!(c, 1);                    // (2) forbid being the last owner
+        }
+    }
+}
+```
+
+Two workarounds are packed in here, both driven by the same teardown contract:
+
+1. **Manual `config.take()` before `reg`** — msquic requires `ConfigurationClose`
+   before `RegistrationClose`. The `Option<Arc<…>>` + `take()` exists only to
+   force that drop order by hand.
+2. **`assert_ne!(strong_count, 1)`** — dropping the *last* `Arc<Registration>`
+   invokes the blocking `RegistrationClose`. `H3MsQuicConnector` is `Clone` and
+   gets moved into the tower/h3 client stack, so it can be dropped on a Tokio
+   worker thread at any time. If it were the last owner, that blocking FFI call
+   would stall the runtime. The assert asserts the application still holds a ref.
+
+### Why this hack is unsatisfying
+
+- **It does not actually prevent the deadlock.** When the assert fires, the
+  local `reg` binding still goes out of scope during unwind and drops the last
+  `Arc` → `RegistrationClose` blocks anyway. The result is "panic message, then
+  still stuck" — the code comment (`// This may cause panic unwind but reg drop
+  will be stuck`) concedes exactly this. The assert is diagnostic only.
+- **Panicking in `Drop` is dangerous.** If the connector is dropped while another
+  panic is unwinding, the second panic aborts the process.
+- **It is a convention enforced at runtime, not by the type system.** Nothing
+  stops a caller from dropping their registration ref before the connector.
+- The `Option`/`take()` ordering dance only matters *if* the connector is the
+  last owner — the exact state the assert forbids. Both hacks guard a case that
+  "should never happen."
+
+### Local fix: hold `Weak`, not `Arc`
+
+Make it structurally impossible for the connector to close the registration:
+
+- The connector stores `Weak<Registration>` (and `Weak<Configuration>`).
+- `connect()` upgrades on demand — `let reg = self.reg.upgrade().ok_or(…)?;` —
+  uses the temporary strong ref, and drops it at the end of the call. If the
+  application already dropped the registration, `connect()` fails cleanly with an
+  error instead of deadlocking.
+- **`Drop for H3MsQuicConnector` can be deleted entirely.** A `Weak` drop never
+  runs `RegistrationClose`, and drop ordering stops being the connector's
+  concern.
+
+The net effect: no custom `Drop`, no panic-in-drop hazard, no `Option`/`take()`,
+and the "caller must keep the registration alive" contract becomes a real
+`Result` at connect time rather than a fragile assert. The tradeoff is that the
+application now explicitly owns both the `Registration` and `Configuration`
+`Arc`s and controls their close order (`drop(config)` before `drop(reg)`), which
+it already does for the registration today.
+
 ## Could this move upstream into msquic-h3?
 
 Yes, but with a dependency constraint. `msquic-h3` 0.0.5 is deliberately
@@ -109,10 +173,58 @@ upstream fit: it requires tokio and does not remove the ordering requirement
 (close still blocks forever if any `Connection` is alive). It only moves the
 unavoidable blocking wait off the runtime thread.
 
+### Proposed upstream API
+
+Add an idle tracker to the `msquic-h3` registration wrapper, built on `futures`
+so it stays executor-neutral:
+
+```rust
+// msquic-h3, executor-agnostic (futures only, no tokio)
+#[derive(Clone, Default)]
+struct RegistrationIdle {
+    live: Arc<AtomicUsize>,
+    waker: Arc<AtomicWaker>,
+}
+
+impl RegistrationIdle {
+    // called from Connection::connect / attach
+    fn enter(&self) -> ConnectionGuard { /* live += 1 */ }
+    // Future that resolves once live == 0
+    fn wait_idle(&self) -> impl Future<Output = ()> + '_ { /* poll AtomicWaker */ }
+}
+
+// ConnectionGuard is stored inside the Connection and, in Drop, does
+// live -= 1 then waker.wake() — AFTER ConnectionClose, so the rundown
+// ref is already released when the count hits zero.
+```
+
+`Registration` then exposes:
+
+```rust
+impl Registration {
+    pub async fn wait_idle(&self);   // returns when every Connection is dropped
+}
+```
+
+Client teardown collapses to: `reg.shutdown(); reg.wait_idle().await; drop(reg);`
+— no app-side counter, no `ConnectionShutdownWaiter` plumbing.
+
 ### Recommendation
 
 The most impactful upstream change is a `futures`-based
 `Registration::wait_idle()` in `msquic-h3` that tracks live connections and
-signals on connection `Drop`. That would let client code delete the
-`H3MsQuicClientWaiter` shim entirely, while the current tokio-based waiter in
-`h3-util` remains valid because `h3-util` already depends on tokio.
+signals on connection `Drop` (after `ConnectionClose`). Because the decrement
+happens exactly where msquic releases the rundown ref, it is both correct and
+race-free — strictly better than the app-side waiter, which signals on
+`SHUTDOWN_COMPLETE` slightly *before* the handle close.
+
+This upstream change would let client code delete **both** shims:
+
+- `H3MsQuicClientWaiter` — replaced by `Registration::wait_idle()`.
+- The `H3MsQuicConnector` `Drop`/`Arc` ownership dance — the connector no longer
+  needs to track or guard connection liveness at all.
+
+Until then, the [local `Weak` fix](#local-fix-hold-weak-not-arc) removes the
+panic-in-drop hazard in `h3-util` without any upstream dependency, and the
+current tokio-based waiter remains valid because `h3-util` already depends on
+tokio.
