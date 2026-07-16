@@ -89,8 +89,7 @@ impl ExampleBody {
             match chunk {
                 Ok(chunk) => {
                     for chunk in chunk.chunks(BufFactoryImpl::MAX_BUF_SIZE) {
-                        let chunk =
-                            OutboundFrame::body(BufFactoryImpl::buf_from_slice(chunk), false);
+                        let chunk = OutboundFrame::Body(Bytes::copy_from_slice(chunk), false);
                         frame_sender.send(chunk).await.ok()?;
                     }
                 }
@@ -106,7 +105,7 @@ impl ExampleBody {
         }
 
         frame_sender
-            .send(OutboundFrame::Body(BufFactoryImpl::get_empty_buf(), true))
+            .send(OutboundFrame::Body(Bytes::new(), true))
             .await
             .ok()?;
 

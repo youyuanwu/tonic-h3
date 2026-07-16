@@ -6,7 +6,6 @@ use h3_util::quiche_h3::tokio_quiche::{
     http3::settings::Http3Settings,
     listen,
     metrics::DefaultMetrics,
-    quic::SimpleConnectionIdGenerator,
     settings::{CertificateKind, Hooks, QuicSettings, TlsCertificatePaths},
 };
 use tokio::net::UdpSocket;
@@ -96,7 +95,6 @@ pub async fn run_server(
             },
             Hooks::default(),
         ),
-        SimpleConnectionIdGenerator,
         DefaultMetrics,
     )
     .expect("should be able to create a listener from a UDP socket");
