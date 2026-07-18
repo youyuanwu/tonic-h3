@@ -52,4 +52,9 @@ pub mod s2n {
     pub use h3_util::s2n::*;
 }
 
+#[cfg(feature = "quiche")]
+pub mod quiche {
+    pub use h3_util::quiche_h3::*;
+}
+
 pub use h3_util::executor::SharedExec;

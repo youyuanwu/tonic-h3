@@ -36,10 +36,8 @@ axum = {version = "0.8", default-features = false}
 http-body-util = "0.1"
 bytes = "1"
 
-# quiche dependencies
-tokio-quiche = { version = "0.19" , default-features = false}
-futures-util = "0.3"
-http-body = "1"
+# quiche-h3 bridge crate (implements the h3::quic traits over tokio-quiche)
+quiche-h3 = "0.0.1"
 
 # crates in this workspace
 tonic-h3 = { path = "tonic-h3" }

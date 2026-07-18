@@ -25,9 +25,6 @@ mod mix;
 #[cfg(test)]
 mod cert_error;
 
-#[cfg(test)]
-mod quiche;
-
 pub mod cert_gen;
 
 tonic::include_proto!("helloworld"); // The string specified here must match the proto package name
@@ -198,6 +195,43 @@ pub fn run_test_s2n_server(
         // s2n does not support close so wait a bit to let server release listening port.
         // tokio::time::sleep(std::time::Duration::from_secs(2)).await;
         // This does not work.
+    });
+
+    (h, listen_addr)
+}
+
+// returns handle and listening addr
+pub fn run_test_quiche_server(
+    in_addr: SocketAddr,
+    token: CancellationToken,
+) -> (tokio::task::JoinHandle<()>, SocketAddr) {
+    use h3_util::quiche_h3::H3QuicheServerConfig;
+
+    let (cert_path, key_path) = crate::cert_gen::make_test_cert_files("test_quiche", true);
+
+    // Bind synchronously via std so we can read the real local addr before
+    // handing the socket to the acceptor. `from_std` requires the ambient
+    // Tokio runtime, which is present because this helper is called from the
+    // `#[tokio::test]` async body.
+    let std_socket = std::net::UdpSocket::bind(in_addr).expect("bind udp socket");
+    let listen_addr = std_socket.local_addr().unwrap();
+    std_socket.set_nonblocking(true).unwrap();
+    let socket = tokio::net::UdpSocket::from_std(std_socket).expect("udp socket from_std");
+
+    let config = H3QuicheServerConfig {
+        cert_path: cert_path.to_string_lossy().into_owned(),
+        key_path: key_path.to_string_lossy().into_owned(),
+        ..Default::default()
+    };
+    let acceptor = tonic_h3::quiche::H3QuicheAcceptor::new(socket, &config)
+        .expect("failed to bind quiche acceptor");
+    let h_sv = run_test_server(acceptor, token);
+
+    let h = tokio::spawn(async move {
+        h_sv.await
+            .expect("cannot join")
+            .expect("tonic server failed");
+        tracing::debug!("test quiche server ended");
     });
 
     (h, listen_addr)
@@ -553,6 +587,29 @@ pub fn run_s2n_client(
         // s2n does not support close.
         tracing::debug!("client endpoint canancl");
         s2n_ep.wait_idle().await.unwrap();
+    });
+    (h, cc)
+}
+
+/// run quiche client in background.
+/// token cancel completes the returned handle.
+pub fn run_quiche_client(
+    uri: Uri,
+    token: CancellationToken,
+) -> (tokio::task::JoinHandle<()>, impl H3Connector) {
+    use h3_util::quiche_h3::H3QuicheClientConfig;
+
+    // Self-signed loopback test cert: do not verify the server certificate.
+    let config = H3QuicheClientConfig {
+        verify_peer: false,
+        ..Default::default()
+    };
+    let cc = tonic_h3::quiche::H3QuicheConnector::new(uri.clone(), "localhost".to_string(), config);
+
+    let h = tokio::spawn(async move {
+        token.cancelled().await;
+        // quiche connector holds no persistent endpoint; nothing to close.
+        tracing::debug!("quiche client cancelled");
     });
     (h, cc)
 }
