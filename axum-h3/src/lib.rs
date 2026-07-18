@@ -1,3 +1,43 @@
+//! HTTP/3 server adapter for [axum], built on the [h3] crate.
+//!
+//! Developed as part of [`tonic-h3`]. This crate serves an [`axum::Router`]
+//! over HTTP/3 by accepting QUIC connections from any [`h3-util`] backend
+//! (via the [`h3_util::server::H3Acceptor`] trait) and dispatching each request
+//! to the router.
+//!
+//! The entry point is [`H3Router`], which wraps an [`axum::Router`] and drives
+//! it with [`H3Router::serve`] or [`H3Router::serve_with_shutdown`]. Each
+//! accepted connection is served on its own task, and each request on that
+//! connection is spawned as a separate task using a [`SharedExec`] executor
+//! (Tokio by default).
+//!
+//! [`h3-util`] itself selects the concrete QUIC backend behind
+//! [`h3_util::server::H3Acceptor`] via cargo features (`quinn`, `msquic`,
+//! `s2n-quic`, `quiche`). **Only the `quinn` backend is supported for
+//! production use;** the others are experimental.
+//!
+//! # Example
+//!
+//! The server is generic over the QUIC backend — provide any
+//! [`h3_util::server::H3Acceptor`]:
+//!
+//! ```no_run
+//! use axum::{routing::get, Router};
+//! use axum_h3::H3Router;
+//! use h3_util::server::H3Acceptor;
+//!
+//! async fn serve<A: H3Acceptor>(acceptor: A) -> Result<(), h3_util::Error> {
+//!     let app = Router::new().route("/", get(|| async { "hello over h3" }));
+//!     H3Router::from(app).serve(acceptor).await
+//! }
+//! ```
+//!
+//! [axum]: https://github.com/tokio-rs/axum
+//! [h3]: https://github.com/hyperium/h3
+//! [`tonic-h3`]: https://github.com/youyuanwu/tonic-h3
+//! [`h3-util`]: https://crates.io/crates/h3-util
+//! [`SharedExec`]: h3_util::executor::SharedExec
+
 use std::future::Future;
 
 use axum::body::Bytes;

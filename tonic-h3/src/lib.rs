@@ -1,34 +1,48 @@
 //! gRPC over HTTP/3 for Rust.
+//!
 //! # Examples
-//! Server example:
-//! ```ignore
-//! async fn run_server(endpoint: h3_quinn::quinn::Endpoint) -> Result<(), tonic_h3::Error> {
-//!     let router = tonic::transport::Server::builder()
-//!         .add_service(GreeterServer::new(HelloWorldService {}));
-//!     let acceptor = tonic_h3::quinn::H3QuinnAcceptor::new(endpoint.clone());
-//!     tonic_h3::server::H3Router::from(router)
-//!         .serve(acceptor)
-//!         .await?;
-//!     endpoint.wait_idle().await;
-//!     Ok(())
-//! }
-//! ```
-//! Client example:
-//! ```ignore
-//! async fn run_client(
-//!   uri: http::Uri,
-//!   client_endpoint: quinn::Endpoint,
-//! ) -> Result<(), tonic_h3::Error> {
-//!   let channel = tonic_h3::quinn::new_quinn_h3_channel(uri.clone(), client_endpoint.clone());
-//!   let mut client = crate::greeter_client::GreeterClient::new(channel);
-//!   let request = tonic::Request::new(crate::HelloRequest {
-//!       name: "Tonic".into(),
-//!   });
-//!   let response = client.say_hello(request).await?;
-//!   println!("RESPONSE={:?}", response);
-//!   Ok(())
-//! }
-//!```
+//!
+//! The examples below use the `quinn` backend (enable the `quinn` feature).
+#![cfg_attr(
+    feature = "quinn",
+    doc = r#"
+Server example:
+```no_run
+use tonic_h3::quinn::h3_quinn::quinn::Endpoint;
+
+async fn run_server(endpoint: Endpoint) -> Result<(), tonic_h3::Error> {
+    // Build your tonic services into `Routes`, e.g.
+    // `Routes::builder().add_service(GreeterServer::new(svc)).routes()`.
+    let routes = tonic::service::Routes::builder().routes();
+    let acceptor = tonic_h3::quinn::H3QuinnAcceptor::new(endpoint.clone());
+    tonic_h3::server::H3Router::new(routes)
+        .serve(acceptor)
+        .await?;
+    endpoint.wait_idle().await;
+    Ok(())
+}
+```
+Client example:
+```no_run
+use tonic_h3::quinn::h3_quinn::quinn::Endpoint;
+
+async fn run_client(
+    uri: http::Uri,
+    client_endpoint: Endpoint,
+) -> Result<(), tonic_h3::Error> {
+    let connector = tonic_h3::quinn::H3QuinnConnector::new(
+        uri.clone(),
+        "localhost".to_string(),
+        client_endpoint,
+    );
+    let _channel = tonic_h3::H3Channel::new(connector, uri, None);
+    // Pass `_channel` to your generated tonic client, e.g.
+    // `GreeterClient::new(_channel)`, then call your RPCs.
+    Ok(())
+}
+```
+"#
+)]
 
 mod client;
 pub mod server;
