@@ -15,7 +15,7 @@ default = []
 quinn = ["dep:h3-quinn"]
 msquic = ["dep:msquic-h3"]
 s2n-quic = ["dep:s2n-quic"]
-quiche = ["dep:tokio-quiche"]
+quiche = ["dep:quiche-h3"]
 tracing = []
 
 [lib]
@@ -34,4 +34,4 @@ bytes.workspace = true
 h3-quinn = { workspace = true, optional = true }
 msquic-h3 = { workspace = true, optional = true }
 s2n-quic = { workspace = true, optional = true }
-tokio-quiche = { workspace = true, optional = true }
+quiche-h3 = { workspace = true, optional = true }

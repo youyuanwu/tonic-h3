@@ -11,6 +11,7 @@ tonic-h3 is targeted to support all quic transport implementations that integrat
 * [quinn](https://github.com/quinn-rs/quinn) ([h3-quinn](https://github.com/hyperium/h3/h3-quinn/))
 * [s2n-quic](https://github.com/aws/s2n-quic) ([s2n-quic-h3](https://github.com/aws/s2n-quic/tree/main/quic/s2n-quic-h3))
 * [msquic](https://github.com/microsoft/msquic) ([msquic-h3](https://github.com/youyuanwu/msquic-h3)).
+* [quiche](https://github.com/cloudflare/quiche) ([quiche-h3](https://github.com/youyuanwu/quiche-h3)).
 
 See [examples](./tonic-h3-tests/examples/) and [tests](./tonic-h3-tests/src/lib.rs) for getting started.
 

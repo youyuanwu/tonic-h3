@@ -21,6 +21,12 @@ async fn msquic_test() {
     h3_test(crate::msquic_util::run_test_msquic_server).await;
 }
 
+#[tokio::test]
+#[test_log::test]
+async fn h3_quiche_test() {
+    h3_test(crate::run_test_quiche_server).await;
+}
+
 // takes in the fn to start the server and then send request to the server.
 #[allow(clippy::type_complexity)]
 async fn h3_test(
@@ -162,6 +168,24 @@ async fn h3_test(
     // wait_idle resolves on Connection *drop*, so it must run after the client
     // stack above is gone. Then dropping reg (RegistrationClose) is non-blocking.
     reg.wait_idle().await;
+
+    // test quiche client
+    {
+        let client_token = CancellationToken::new();
+        let (h_cli, cc) = crate::run_quiche_client(uri.clone(), client_token.clone());
+        let channel = tonic_h3::H3Channel::new(cc, uri.clone(), None);
+        let mut client = crate::greeter_client::GreeterClient::new(channel);
+        {
+            let request = tonic::Request::new(crate::HelloRequest {
+                name: "Tonic-Quiche".into(),
+            });
+            let response = client.say_hello(request).await.unwrap();
+            tracing::debug!("RESPONSE={:?}", response);
+        }
+        client_token.cancel();
+        h_cli.await.unwrap();
+    }
+
     token.cancel();
     h_svr.await.unwrap();
 }
