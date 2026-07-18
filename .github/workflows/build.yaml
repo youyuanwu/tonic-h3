@@ -3,12 +3,27 @@ name: build
 on: [push, pull_request, workflow_dispatch]
 
 jobs:
+  toolchain:
+    runs-on: ubuntu-latest
+    outputs:
+      channel: ${{ steps.read.outputs.channel }}
+    steps:
+    - uses: actions/checkout@v7
+    - name: Read rust channel from rust-toolchain.toml
+      id: read
+      run: |
+        channel=$(grep -oP 'channel\s*=\s*"\K[^"]+' rust-toolchain.toml)
+        echo "channel=$channel" >> "$GITHUB_OUTPUT"
+
   build:
+    needs: toolchain
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ windows-latest, ubuntu-latest ]
-        rust: [ 1.90.0, 1.94.0 ] 
+        # 1.90.0 is the MSRV; the second entry is the pinned toolchain read
+        # from rust-toolchain.toml by the `toolchain` job.
+        rust: [ "1.90.0", "${{ needs.toolchain.outputs.channel }}" ]
       fail-fast: false
     env:
       SCCACHE_GHA_ENABLED: "true"
@@ -96,6 +111,9 @@ jobs:
 
     - name: run all rust unittests
       run: cargo +${{ matrix.rust }} test --all-targets
+
+    - name: run rust doctests
+      run: cargo +${{ matrix.rust }} test --workspace --doc
 
     - name: check crate packaging
       run: cargo +${{ matrix.rust }} package -p tonic-h3 -p h3-util -p h3-util -p axum-h3 --allow-dirty
