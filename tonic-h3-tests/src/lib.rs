@@ -366,17 +366,24 @@ pub mod msquic_util {
             h_sv.await
                 .expect("cannot join")
                 .expect("tonic server failed");
-            // This is required for msquic to clean up.
+            // Teardown recipe (see msquic-h3 registration-wait-idle-design.md):
+            // shutdown -> wait_idle -> drop config -> drop registration.
+            //
+            // `acceptor.shutdown()` only stops the listener (no new accepts); it
+            // does not close accepted connections. `reg.shutdown()` shuts down
+            // all accepted connections and stops listeners, so `wait_idle` can
+            // resolve without depending on the client closing first.
             acceptor_cp.shutdown().await;
-            // config is closed after listener
+            reg.shutdown();
+            // Drop the listener guard: `wait_idle` cannot resolve while a
+            // listener is alive.
             std::mem::drop(acceptor_cp);
+            // Wait for the listener and all accepted connections to release the
+            // registration rundown so the final drop does not block the runtime.
+            reg.wait_idle().await;
+            // config is closed after listener, registration last.
             std::mem::drop(config_cp);
-            let th = std::thread::spawn(move || {
-                std::mem::drop(reg);
-            });
-            while !th.is_finished() {
-                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-            }
+            std::mem::drop(reg);
             tracing::debug!("test server ended")
         });
 
