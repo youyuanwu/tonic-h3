@@ -94,6 +94,12 @@ pub struct RequestSender<CONN: H3Connector> {
     >,
     uri: Uri,
     executor: SharedExec,
+    // Stores a connect/handshake error from `poll_ready` so it can be surfaced as a
+    // per-request failure from `call` instead of a terminal readiness error. Returning
+    // an error from `poll_ready` would cause `tower::buffer::Buffer` to treat the channel
+    // as permanently failed (it closes the request channel and replays the stored error
+    // to every subsequent request and cloned handle), which would defeat reconnection.
+    connect_error: Option<crate::Error>,
 }
 
 impl<CONN> RequestSender<CONN>
@@ -108,6 +114,7 @@ where
             make_send_request_fut: None,
             uri,
             executor,
+            connect_error: None,
         }
     }
 }
@@ -147,6 +154,16 @@ where
             }
         }
 
+        // Idempotency guard (tower `Service` contract): if a previous connect attempt
+        // failed, we are "ready" — the stored error will be surfaced by the next `call`.
+        // Returning ready here (before any connect logic) ensures repeated `poll_ready`
+        // calls stay ready and do NOT start a second connect attempt or clear/overwrite
+        // the pending error. The error is cleared only when `call` consumes it, after
+        // which the next `poll_ready` (guard sees `None`) starts a fresh connect attempt.
+        if self.connect_error.is_some() {
+            return std::task::Poll::Ready(Ok(()));
+        }
+
         // ready for send.
         if self.send_request.is_some() {
             tracing::trace!("exp poll_ready cache hit.");
@@ -183,15 +200,40 @@ where
                     Ok(())
                 }
                 Err(e) => {
+                    // Defer the connect/handshake error to the next `call` instead of
+                    // returning it here. Surfacing it through `poll_ready` would make
+                    // `tower::Buffer` permanently fail the channel (see `connect_error`).
+                    // `send_request` stays `None` and `make_send_request_fut` is cleared,
+                    // so once `call` consumes the error the next `poll_ready` reconnects.
                     self.make_send_request_fut = None;
-                    Err(e)
+                    self.connect_error = Some(e);
+                    Ok(())
                 }
             })
     }
 
     /// Gets the send_request from the cache and send the request.
     fn call(&mut self, mut req: Request<B>) -> Self::Future {
-        let send_request = self.send_request.clone().unwrap();
+        // Surface any deferred connect/handshake error as a per-request failure. `take`
+        // moves the error out, so the next `poll_ready` will start a fresh connect.
+        if let Some(e) = self.connect_error.take() {
+            return Box::pin(async move { Err(e) });
+        }
+
+        // Defensive: under the tower `Service` contract `call` is only reached after a
+        // `poll_ready` that returned `Ready(Ok)`, which means either a cached sender or a
+        // pending connect error existed. If neither holds (contract violation), return an
+        // error future rather than panicking.
+        let send_request = match &self.send_request {
+            Some(sr) => sr.clone(),
+            None => {
+                return Box::pin(async move {
+                    Err(crate::Error::from(
+                        "h3 request sender is not ready: poll_ready must return Ready(Ok) before call",
+                    ))
+                });
+            }
+        };
 
         // replace the uri
         let uri = &self.uri;
