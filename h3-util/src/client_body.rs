@@ -107,6 +107,16 @@ where
     }
 }
 
+/// Stream the client request body to the peer over the send-side
+/// `RequestStream`.
+///
+/// The send stream is wrapped in a reset-on-drop guard: if the body send is
+/// interrupted — by cancellation, a local body-source error, a transport send
+/// error, or a hard drop/abort of this future — the stream is reset so the peer
+/// observes an HTTP/3 stream error instead of a graceful end-of-stream.
+/// Cancellation resets with `H3_REQUEST_CANCELLED`; body-source and transport
+/// failures reset with `H3_INTERNAL_ERROR`. On normal completion the guard is
+/// disarmed after `finish()` succeeds, preserving the clean FIN.
 pub async fn send_h3_client_body<S, B>(
     w: h3::client::RequestStream<<S as h3::quic::BidiStream<Bytes>>::SendStream, Bytes>,
     bd: B,

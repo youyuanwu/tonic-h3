@@ -102,6 +102,16 @@ where
     }
 }
 
+/// Stream the server response body to the peer over the send-side
+/// `RequestStream`.
+///
+/// Response headers have already been sent by the caller, so an interrupted body
+/// must reset the stream rather than let the peer see a graceful end-of-stream
+/// for a truncated response. The send stream is wrapped in a reset-on-drop
+/// guard: a body-source or transport failure resets with `H3_INTERNAL_ERROR`,
+/// and a hard drop/abort of this future resets with the default
+/// `H3_REQUEST_CANCELLED`. On normal completion the guard is disarmed after
+/// `finish()` succeeds.
 pub async fn send_h3_server_body<BD, S>(
     w: &mut h3::server::RequestStream<<S as h3::quic::BidiStream<Bytes>>::SendStream, Bytes>,
     bd: BD,
