@@ -31,6 +31,9 @@ mod failover;
 #[cfg(test)]
 mod buffered_reconnect;
 
+#[cfg(test)]
+mod cancel_reset;
+
 pub mod cert_gen;
 
 tonic::include_proto!("helloworld"); // The string specified here must match the proto package name

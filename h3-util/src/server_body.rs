@@ -82,24 +82,46 @@ where
     <BD as Body>::Data: Send + Sync,
     S: h3::quic::BidiStream<hyper::body::Bytes>,
 {
+    // Reset-on-drop guard: response headers may already have been sent, so an
+    // interrupted body must reset the stream rather than let the peer see a
+    // graceful end-of-stream for a truncated response.
+    let mut w = crate::send_guard::SendResetGuard::new(w);
     let mut p_b = std::pin::pin!(bd);
     while let Some(d) = futures::future::poll_fn(|cx| p_b.as_mut().poll_frame(cx)).await {
         // send body
-        let d = d.map_err(crate::Error::from)?;
+        let d = match d {
+            Ok(d) => d,
+            Err(e) => {
+                // Local body-source failure: reset with an internal error.
+                w.set_error_code(h3::error::Code::H3_INTERNAL_ERROR);
+                return Err(crate::Error::from(e));
+            }
+        };
         if d.is_data() {
             let mut d = d.into_data().ok().unwrap();
             tracing::trace!("serving request write data");
             // Bytes optimizes the shallow copy.
-            w.send_data(d.copy_to_bytes(d.remaining())).await?;
+            if let Err(e) = w.send_data(d.copy_to_bytes(d.remaining())).await {
+                w.set_error_code(h3::error::Code::H3_INTERNAL_ERROR);
+                return Err(e.into());
+            }
         } else if d.is_trailers() {
             let d = d.into_trailers().ok().unwrap();
             tracing::trace!("serving request write trailer: {:?}", d);
-            w.send_trailers(d).await?;
+            if let Err(e) = w.send_trailers(d).await {
+                w.set_error_code(h3::error::Code::H3_INTERNAL_ERROR);
+                return Err(e.into());
+            }
         }
     }
     // Close the stream gracefully.
     // This is technically only needed when not writing trailers.
     // But msquic-h3 requires stream be gracefully closed all the time.
-    w.finish().await?;
+    if let Err(e) = w.finish().await {
+        w.set_error_code(h3::error::Code::H3_INTERNAL_ERROR);
+        return Err(e.into());
+    }
+    // Normal completion: keep the graceful FIN, do not reset on drop.
+    w.disarm();
     Ok(())
 }
