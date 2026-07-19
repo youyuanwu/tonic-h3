@@ -25,6 +25,9 @@ mod mix;
 #[cfg(test)]
 mod cert_error;
 
+#[cfg(test)]
+mod failover;
+
 pub mod cert_gen;
 
 tonic::include_proto!("helloworld"); // The string specified here must match the proto package name
