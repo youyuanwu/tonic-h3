@@ -37,10 +37,18 @@ impl H3Connector for H3QuinnConnector {
                 .connect(addr, &self.server_name)
                 .map_err(Into::<crate::Error>::into)
             {
-                Ok(conn) => {
-                    let x = conn.await.map_err(Into::<crate::Error>::into)?;
-                    return Ok(h3_quinn::Connection::new(x));
-                }
+                // `Endpoint::connect` only validates config synchronously; the real
+                // handshake completes on the awaited future below.
+                Ok(conn) => match conn.await.map_err(Into::<crate::Error>::into) {
+                    Ok(x) => return Ok(h3_quinn::Connection::new(x)),
+                    // The async handshake failed for this address. Record the error and
+                    // continue to the next resolved address (e.g. IPv6 then IPv4) rather
+                    // than aborting the whole connect attempt on the first failure.
+                    Err(e) => {
+                        tracing::trace!("handshake failed for {addr:?}: {e}");
+                        conn_err = e;
+                    }
+                },
                 Err(e) => conn_err = e,
             }
         }
