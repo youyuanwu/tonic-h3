@@ -5,6 +5,11 @@ updates:
     schedule:
       interval: "weekly"
 
+  - package-ecosystem: "nuget"
+    directory: "/dotnet"
+    schedule:
+      interval: "weekly"
+
   - package-ecosystem: "rust-toolchain"
     directory: "/"
     schedule:
