@@ -3537,6 +3537,7 @@ dependencies = [
  "axum",
  "axum-h3",
  "futures",
+ "h3",
  "h3-util",
  "http",
  "http-body-util",
