@@ -8,6 +8,10 @@ where
 {
     s: RequestStream<S, B>,
     data_done: bool,
+    // Set once the stream reaches its terminal state (clean end-of-stream or a
+    // stream error). Used by `Drop` to decide whether an early drop should reset
+    // the receive side.
+    finished: bool,
 }
 
 impl<S, B> H3IncomingServer<S, B>
@@ -19,6 +23,23 @@ where
         Self {
             s,
             data_done: false,
+            finished: false,
+        }
+    }
+}
+
+impl<S, B> Drop for H3IncomingServer<S, B>
+where
+    B: Buf,
+    S: h3::quic::RecvStream,
+{
+    fn drop(&mut self) {
+        if !self.finished {
+            // The incoming request body was dropped before it was fully
+            // consumed. Tell the peer to stop sending with a proper HTTP/3 code
+            // (quinn would otherwise send STOP_SENDING with code 0). Best-effort:
+            // ignored if the stream is already finished or reset.
+            self.s.stop_sending(h3::error::Code::H3_REQUEST_CANCELLED);
         }
     }
 }
@@ -51,13 +72,23 @@ where
                         std::task::Poll::Pending
                     }
                 },
-                Err(e) => std::task::Poll::Ready(Some(Err(e))),
+                Err(e) => {
+                    self.finished = true;
+                    std::task::Poll::Ready(Some(Err(e)))
+                }
             }
         } else {
             tracing::trace!("server incomming poll_frame recv_trailers");
-            match futures::ready!(self.s.poll_recv_trailers(cx))? {
-                Some(tr) => std::task::Poll::Ready(Some(Ok(hyper::body::Frame::trailers(tr)))),
-                None => std::task::Poll::Ready(None),
+            match futures::ready!(self.s.poll_recv_trailers(cx)) {
+                Ok(Some(tr)) => std::task::Poll::Ready(Some(Ok(hyper::body::Frame::trailers(tr)))),
+                Ok(None) => {
+                    self.finished = true;
+                    std::task::Poll::Ready(None)
+                }
+                Err(e) => {
+                    self.finished = true;
+                    std::task::Poll::Ready(Some(Err(e)))
+                }
             }
         }
     }
