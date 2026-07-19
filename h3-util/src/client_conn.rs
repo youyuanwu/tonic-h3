@@ -3,6 +3,7 @@ use futures::{FutureExt, future::BoxFuture};
 use hyper::{
     Request, Response, Uri,
     body::{Body, Bytes},
+    http::uri::{Authority, PathAndQuery, Scheme},
     rt::Executor,
 };
 use std::future::Future;
@@ -92,8 +93,14 @@ pub struct RequestSender<CONN: H3Connector> {
             >,
         >,
     >,
-    uri: Uri,
     executor: SharedExec,
+    // Precomputed base URI parts (SF-1). The public constructors accept any `http::Uri`,
+    // whose scheme and authority are `Option`s. We validate/clone them once here so the
+    // request hot path (`call`) never unwraps a user-supplied `Option` and panics. `None`
+    // records that the base URI lacked that component; `call` surfaces this as a
+    // per-request error future rather than panicking (mirroring `connect_error`).
+    base_scheme: Option<Scheme>,
+    base_authority: Option<Authority>,
     // Stores a connect/handshake error from `poll_ready` so it can be surfaced as a
     // per-request failure from `call` instead of a terminal readiness error. Returning
     // an error from `poll_ready` would cause `tower::buffer::Buffer` to treat the channel
@@ -107,13 +114,20 @@ where
     CONN: H3Connector,
 {
     pub fn new(conn: CONN, uri: Uri, executor: SharedExec) -> Self {
+        // SF-1: precompute/validate the base URI's scheme and authority once. Do NOT
+        // panic here on a missing component — the public constructors must stay
+        // infallible (return `Self`). Absence is recorded and surfaced per-request
+        // from `call` as a clean error future.
+        let base_scheme = uri.scheme().cloned();
+        let base_authority = uri.authority().cloned();
         Self {
             conn,
             send_request: None,
             driver_rx: None,
             make_send_request_fut: None,
-            uri,
             executor,
+            base_scheme,
+            base_authority,
             connect_error: None,
         }
     }
@@ -220,6 +234,44 @@ where
             return Box::pin(async move { Err(e) });
         }
 
+        // SF-1: rebuild the request URI from the validated base scheme+authority and the
+        // request's path-and-query, surfacing any missing/invalid component as a
+        // per-request error future (mirroring the `connect_error` shape) instead of
+        // panicking. Done BEFORE cloning the cached sender so an invalid base URI never
+        // consumes a connection.
+        let (scheme, authority) = match (self.base_scheme.clone(), self.base_authority.clone()) {
+            (Some(scheme), Some(authority)) => (scheme, authority),
+            (None, _) => {
+                return Box::pin(async move {
+                    Err(crate::Error::from("h3 client base URI is missing a scheme"))
+                });
+            }
+            (_, None) => {
+                return Box::pin(async move {
+                    Err(crate::Error::from(
+                        "h3 client base URI is missing an authority",
+                    ))
+                });
+            }
+        };
+        // A request target without a path-and-query defaults to origin-form "/".
+        let path_and_query = req
+            .uri()
+            .path_and_query()
+            .cloned()
+            .unwrap_or_else(|| PathAndQuery::from_static("/"));
+        let uri2 = match Uri::builder()
+            .scheme(scheme)
+            .authority(authority)
+            .path_and_query(path_and_query)
+            .build()
+        {
+            Ok(uri2) => uri2,
+            Err(e) => {
+                return Box::pin(async move { Err(crate::Error::from(e)) });
+            }
+        };
+
         // Defensive: under the tower `Service` contract `call` is only reached after a
         // `poll_ready` that returned `Ready(Ok)`, which means either a cached sender or a
         // pending connect error existed. If neither holds (contract violation), return an
@@ -235,15 +287,6 @@ where
             }
         };
 
-        // replace the uri
-        let uri = &self.uri;
-        // fix up uri with full uri.
-        let uri2 = Uri::builder()
-            .scheme(uri.scheme().unwrap().clone())
-            .authority(uri.authority().unwrap().clone())
-            .path_and_query(req.uri().path_and_query().unwrap().clone())
-            .build()
-            .unwrap();
         *req.uri_mut() = uri2;
         let executor = self.executor.clone();
         Box::pin(async move {
