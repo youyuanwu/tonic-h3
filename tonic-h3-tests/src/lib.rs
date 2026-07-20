@@ -34,6 +34,12 @@ mod buffered_reconnect;
 #[cfg(test)]
 mod cancel_reset;
 
+#[cfg(test)]
+mod uri_boundary;
+
+#[cfg(test)]
+mod goaway_reconnect;
+
 pub mod cert_gen;
 
 tonic::include_proto!("helloworld"); // The string specified here must match the proto package name
