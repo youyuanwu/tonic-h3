@@ -40,7 +40,7 @@ let base_authority = uri.authority().cloned(); // Option<Authority>
 (mirroring the MF-2 `connect_error` deferral pattern) instead of panicking:
 
 - Missing base scheme or authority → per-request error future, returned **before** the
-  cached sender is cloned (an invalid base never consumes a connection).
+  cached sender is cloned or used (so no request is sent on an invalid base URI).
 - Missing request path-and-query → defaults to origin-form `"/"`
   (`PathAndQuery::from_static("/")`). This is the correct HTTP/3 request target for an
   authority-form request URI (e.g. `localhost:443`, whose `path_and_query()` is `None`);
