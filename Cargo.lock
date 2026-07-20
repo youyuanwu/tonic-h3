@@ -1776,9 +1776,9 @@ dependencies = [
 
 [[package]]
 name = "msquic-h3"
-version = "0.0.6"
+version = "0.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "78178d11fe6744c1df64a177673e80ca4a3f3b624731031e58674ce51ac5a76e"
+checksum = "b9559bd63fea209affcbcb1b42c8ffed590cbbb02c1edcaf6d23c54682ae1a0c"
 dependencies = [
  "bytes",
  "futures",
@@ -2333,9 +2333,9 @@ dependencies = [
 
 [[package]]
 name = "quiche-h3"
-version = "0.0.1"
+version = "0.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "685d613e272563c37905697b3bea7a8ac47f10eec229349fb6a83178d0f17474"
+checksum = "9f0a73289e282a0066258d81d90dd4d01d3bce47a1c39ac207543950ce2bb522"
 dependencies = [
  "bytes",
  "futures",
