@@ -33,7 +33,6 @@ async fn h3_msquic_test() {
 #[tokio::test]
 #[test_log::test]
 #[serial_test::serial(reconnect)]
-#[ignore = "quiche listener does not release the UDP socket promptly on shutdown (AddrInUse on rebind)"]
 async fn h3_quiche_test() {
     reconnect_test(crate::run_test_quiche_server, crate::run_quiche_client).await;
 }
