@@ -17,7 +17,7 @@ rcgen = { version = "0.14", default-features = false, features = ["crypto", "aws
 rustls = { version = "0.23", default-features = false, features = ["std", "aws_lc_rs"] }
 serial_test = "3"
 test-log = { version = "0.2", default-features = false, features = ["trace"] }
-tokio = { version = "1", default-features = false, features = ["full"] }
+tokio = { version = "1", default-features = false }
 tokio-util = "0.7"
 tonic = { version = "0.14", default-features = false, features = ["router", "codegen", "transport"] }
 tonic-prost-build = "0.14"
@@ -42,5 +42,5 @@ quiche-h3 = "0.0.2"
 # crates in this workspace
 tonic-h3 = { path = "tonic-h3" }
 tonic-h3-s2n = { path = "tonic-h3-s2n" }
-h3-util = { version = "0.0.5", path = "h3-util" , default-features = false }
-axum-h3 = { version = "0.0.5", path = "axum-h3" }
+h3-util = { version = "0.0.6", path = "h3-util" , default-features = false }
+axum-h3 = { version = "0.0.6", path = "axum-h3" }
