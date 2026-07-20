@@ -29,6 +29,18 @@ impl H3QuicheAcceptor {
         })?;
         Ok(Self { inner })
     }
+
+    /// Return a cloneable [`H3QuicheEndpoint`] handle for graceful shutdown.
+    ///
+    /// The handle shares the acceptor's endpoint registry and outlives the
+    /// acceptor, so it can drive [`close`](quiche_h3::H3QuicheEndpoint::close)
+    /// and [`wait_idle`](quiche_h3::H3QuicheEndpoint::wait_idle) even after the
+    /// acceptor has been moved into a serving task and dropped. Take it before
+    /// serving to drain live connection workers on shutdown so the UDP port can
+    /// be rebound promptly.
+    pub fn endpoint(&self) -> quiche_h3::H3QuicheEndpoint {
+        self.inner.endpoint()
+    }
 }
 
 impl H3Acceptor for H3QuicheAcceptor {

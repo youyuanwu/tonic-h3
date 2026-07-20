@@ -240,12 +240,18 @@ pub fn run_test_quiche_server(
     };
     let acceptor = tonic_h3::quiche::H3QuicheAcceptor::new(socket, &config)
         .expect("failed to bind quiche acceptor");
+    // Take a shutdown handle before the acceptor is moved into the serving task.
+    let endpoint = acceptor.endpoint();
     let h_sv = run_test_server(acceptor, token);
 
     let h = tokio::spawn(async move {
         h_sv.await
             .expect("cannot join")
             .expect("tonic server failed");
+        // Drain live connection workers so the UDP port is released promptly and
+        // can be rebound (see H3QuicheEndpoint::wait_idle docs).
+        endpoint.close(h3::error::Code::H3_NO_ERROR, b"svr shutdown");
+        endpoint.wait_idle().await;
         tracing::debug!("test quiche server ended");
     });
 
