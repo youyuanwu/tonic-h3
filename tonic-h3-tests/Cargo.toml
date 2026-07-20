@@ -10,7 +10,7 @@ rcgen.workspace = true
 rustls.workspace = true
 serial_test.workspace = true
 test-log.workspace = true
-tokio.workspace = true
+tokio = { workspace = true, features = ["full"] }
 tokio-util.workspace = true
 tonic-h3 = {workspace = true, features = ["quinn", "msquic", "s2n-quic", "quiche"]}
 tonic.workspace = true
