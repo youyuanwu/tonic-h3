@@ -12,13 +12,12 @@ param topology = 'cross-zone'
 param location = 'eastus2'
 param primaryZone = '1'
 param secondaryZone = '2'
-param vmSize = 'Standard_D4s_v5'
+param vmSize = 'Standard_D2s_v5'
 param adminUsername = 'azureuser'
 param benchPorts = [
   '50051'
 ]
 param enablePublicIpForSsh = true
-param enableCloudInit = false
 
 param sshPublicKey = readEnvironmentVariable('TONICH3_SSH_PUBKEY', 'ssh-ed25519 AAAA_REPLACE_ME_placeholder')
 param adminSourceCidr = readEnvironmentVariable('TONICH3_ADMIN_CIDR', '0.0.0.0/32')

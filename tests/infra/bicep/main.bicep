@@ -36,11 +36,11 @@ param secondaryLocation string = 'westus2'
 @description('Resource name prefix.')
 param namePrefix string = 'tonich3'
 
-@description('Unique-ish suffix to disambiguate resource names across deployments.')
-param deploySuffix string = take(uniqueString(resourceGroup().id, topology), 6)
+@description('Optional suffix to disambiguate resource names when running multiple stacks in one resource group. Empty (default) = clean, predictable names.')
+param nameSuffix string = ''
 
 @description('VM size. Must support Accelerated Networking (D/Ds v5-class recommended).')
-param vmSize string = 'Standard_D4s_v5'
+param vmSize string = 'Standard_D2s_v5'
 
 @description('Admin username for the Linux VMs.')
 param adminUsername string = 'azureuser'
@@ -78,9 +78,6 @@ param secondarySubnetPrefix string = '10.30.1.0/24'
 @description('Attach a management public IP to each VM for SSH. Disable to use Azure Bastion instead.')
 param enablePublicIpForSsh bool = true
 
-@description('Run the optional cloud-init stub (installs build prerequisites) on each node.')
-param enableCloudInit bool = false
-
 @description('Resource tags applied to every resource.')
 param tags object = {
   workload: 'tonic-h3-bench'
@@ -96,15 +93,18 @@ var isCrossRegion = topology == 'cross-region'
 
 var subnetName = 'bench'
 
-var primaryNodeBase = '${namePrefix}-primary-${deploySuffix}'
-var secondaryNodeBase = '${namePrefix}-secondary-${deploySuffix}'
+// Optional disambiguation suffix; empty by default for clean, predictable names.
+var suffix = empty(nameSuffix) ? '' : '-${nameSuffix}'
+
+var primaryNodeBase = '${namePrefix}-primary${suffix}'
+var secondaryNodeBase = '${namePrefix}-secondary${suffix}'
 var primaryVnetName = '${primaryNodeBase}-vnet'
 var secondaryVnetName = '${secondaryNodeBase}-vnet'
 
-var clientVmName = '${namePrefix}-client-${deploySuffix}'
-var serverVmName = '${namePrefix}-server-${deploySuffix}'
+var clientVmName = '${namePrefix}-client${suffix}'
+var serverVmName = '${namePrefix}-server${suffix}'
 
-var ppgName = '${namePrefix}-ppg-${deploySuffix}'
+var ppgName = '${namePrefix}-ppg${suffix}'
 
 // Location / zone selection per topology.
 var serverLocation = isCrossRegion ? secondaryLocation : location
@@ -123,8 +123,6 @@ var ppgId = isSameZone ? resourceId('Microsoft.Compute/proximityPlacementGroups'
 var serverSubnetId = isCrossRegion
   ? resourceId('Microsoft.Network/virtualNetworks/subnets', secondaryVnetName, subnetName)
   : networkPrimary.outputs.subnetId
-
-var customDataBase64 = enableCloudInit ? loadFileAsBase64('cloud-init/bench-node.yaml') : ''
 
 // ---------------------------------------------------------------------------
 // Proximity Placement Group (same-zone only, for minimal latency co-location)
@@ -194,7 +192,6 @@ module clientVm 'modules/vm.bicep' = {
     vmSize: vmSize
     adminUsername: adminUsername
     sshPublicKey: sshPublicKey
-    customDataBase64: customDataBase64
     ppgId: ppgId
     enablePublicIp: enablePublicIpForSsh
     tags: tags
@@ -214,7 +211,6 @@ module serverVm 'modules/vm.bicep' = {
     vmSize: vmSize
     adminUsername: adminUsername
     sshPublicKey: sshPublicKey
-    customDataBase64: customDataBase64
     ppgId: ppgId
     enablePublicIp: enablePublicIpForSsh
     tags: tags

@@ -23,7 +23,7 @@ param zone string = ''
 @description('Resource ID of the subnet to attach the NIC to.')
 param subnetId string
 
-@description('VM size. Must support Accelerated Networking (e.g. Standard_D4s_v5).')
+@description('VM size. Must support Accelerated Networking + Premium storage (e.g. Standard_D2s_v5).')
 param vmSize string
 
 @description('Admin username for the Linux VM.')
@@ -31,9 +31,6 @@ param adminUsername string
 
 @description('SSH public key (OpenSSH format). Supplied at deploy time; never hard-coded.')
 param sshPublicKey string
-
-@description('Base64-encoded cloud-init customData. Empty string = no customData.')
-param customDataBase64 string = ''
 
 @description('Resource ID of a Proximity Placement Group to co-locate the VM. Empty = none.')
 param ppgId string = ''
@@ -46,7 +43,6 @@ param tags object = {}
 
 var hasZone = !empty(zone)
 var hasPpg = !empty(ppgId)
-var hasCustomData = !empty(customDataBase64)
 
 resource pip 'Microsoft.Network/publicIPAddresses@2023-11-01' = if (enablePublicIp) {
   name: '${name}-pip'
@@ -98,7 +94,6 @@ resource vm 'Microsoft.Compute/virtualMachines@2024-03-01' = {
     osProfile: {
       computerName: name
       adminUsername: adminUsername
-      customData: hasCustomData ? customDataBase64 : null
       linuxConfiguration: {
         disablePasswordAuthentication: true
         ssh: {

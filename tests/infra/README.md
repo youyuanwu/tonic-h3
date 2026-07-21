@@ -47,7 +47,10 @@ IPs / the Azure backbone) and never the public internet**:
   keeps inter-region traffic on the Azure backbone and, via the peering, folds
   the remote address space into each side's `VirtualNetwork` tag.
 - **Accelerated Networking** is enabled on every NIC — essential for meaningful
-  network benchmarks. The default `Standard_D4s_v5` SKU supports it.
+  network benchmarks. The default `Standard_D2s_v5` SKU (2 vCPU / 8 GiB) supports
+  Accelerated Networking + Premium storage; it is the smallest size compatible
+  with this template. For higher-throughput runs where the small NIC could become
+  the bottleneck, bump to `Standard_D4s_v5` (or larger) via `--vm-size`.
 - **SSH is management-only.** Port 22 is allowed **only** from a
   parameterised admin CIDR. The benchmark ports are never exposed publicly.
 
@@ -79,8 +82,6 @@ tests/infra/
 ├── README.md
 ├── bicep/
 │   ├── main.bicep                 # topology dispatcher (RG-scoped)
-│   ├── cloud-init/
-│   │   └── bench-node.yaml         # optional, minimal provisioning stub
 │   ├── modules/
 │   │   ├── network.bicep           # VNet + subnet + NSG (TCP+UDP bench rules)
 │   │   ├── vm.bicep                # NIC (accel-net) + optional PIP + VM
@@ -93,6 +94,11 @@ tests/infra/
     ├── deploy.sh                    # az group create + az deployment ... create
     ├── teardown.sh                  # az group delete (confirmation guarded)
     └── validate.sh                  # az bicep build for every template
+└── ansible/
+    ├── inventory.py                 # query az for VM private/public IPs -> inventory.ini
+    ├── ping.yml                     # peer connectivity test (ICMP over private IPs)
+    ├── ansible.cfg                  # local defaults (inventory, host-key checking off)
+    └── inventory.ini               # GENERATED per deploy (git-ignored)
 ```
 
 ## Prerequisites
@@ -121,7 +127,11 @@ discards the generated ARM JSON. Compiled `*.json` is also git-ignored.
 ## Deploy
 
 ```bash
-# same-zone (PPG co-located, lowest latency)
+# same-zone (PPG co-located, lowest latency).
+# --admin-cidr is optional: omit it to auto-detect this machine's public IP as /32.
+tests/infra/scripts/deploy.sh same-zone
+
+# Pin the SSH source explicitly (e.g. a corporate range):
 tests/infra/scripts/deploy.sh same-zone   --admin-cidr 203.0.113.10/32
 
 # cross-zone (zones 1 and 2, same region)
@@ -129,19 +139,24 @@ tests/infra/scripts/deploy.sh cross-zone  --admin-cidr 203.0.113.10/32
 
 # cross-region (eastus2 + westus2, global peering)
 tests/infra/scripts/deploy.sh cross-region --admin-cidr 203.0.113.10/32
+
+# cross-region with BOTH regions chosen explicitly
+tests/infra/scripts/deploy.sh cross-region --admin-cidr 203.0.113.10/32 \
+  --location eastus2 --secondary-location westus3
 ```
 
 Common options (see `deploy.sh --help`):
 
 | Option | Meaning | Default |
 |--------|---------|---------|
-| `-c, --admin-cidr CIDR` | Source CIDR allowed to SSH (**required**) | — |
+| `-c, --admin-cidr CIDR` | Source CIDR allowed to SSH | auto-detected `<egress-ip>/32` |
 | `-g, --resource-group`  | RG name | `rg-tonich3-bench-<topology>` |
 | `-l, --location`        | Primary region | `eastus2` |
-| `-k, --ssh-key PATH`    | SSH **public** key file | `~/.ssh/id_rsa.pub` |
-| `-s, --suffix`          | Override resource-name suffix | auto (`uniqueString`) |
+| `-L, --secondary-location` | Second region (**`cross-region` only**) | `westus2` (from param file) |
+| `-k, --ssh-key PATH`    | SSH **public** key file | `~/.ssh/id_ed25519.pub` |
+| `-m, --vm-size SIZE`    | VM size (must support Accel-Net + Premium storage) | `Standard_D2s_v5` |
+| `-s, --suffix`          | Optional resource-name suffix | none (clean names) |
 | `-n, --no-public-ip`    | No management PIPs — use **Azure Bastion** | PIPs on |
-| `--cloud-init`          | Run the optional provisioning stub | off |
 | `--what-if`             | Preview only | — |
 
 The script injects the key/CIDR via `TONICH3_SSH_PUBKEY` / `TONICH3_ADMIN_CIDR`
@@ -180,9 +195,41 @@ Key outputs consumed by the harness:
 SSH in for management (public-IP mode):
 `ssh azureuser@<serverSshPublicIp>`.
 
+## Peer connectivity test (Ansible)
+
+After a deployment, verify the two nodes can reach each other over their
+**private** IPs (proving the same-subnet / cross-zone / global-peering path works
+without touching the public internet).
+
+Prerequisites: `ansible-core` on your control machine
+(`pipx install ansible-core` or `pip install --user ansible-core`).
+
+```bash
+cd tests/infra/ansible
+
+# 1. Query Azure for the VM IPs and write inventory.ini
+python3 inventory.py --topology cross-region        # or --resource-group <rg>
+
+# 2. ICMP-ping each node's peer over the private link
+ansible-playbook ping.yml                            # ansible.cfg -> ./inventory.ini
+```
+
+`inventory.py` builds a `bench` group with two hosts (`client`, `server`); each
+carries `ansible_host` (public IP for SSH), `private_ip`, and `peer`. `ping.yml`
+resolves `hostvars[peer].private_ip` and runs `ping` from each node to the other,
+failing the play if the private path is unreachable. Azure's default
+`AllowVnetInBound` rule permits intra-VNet/peered ICMP, so success confirms
+end-to-end private connectivity.
+
+Options: `inventory.py -u <user>` (SSH user, default `azureuser`), `-k <path>`
+(private key, default `~/.ssh/id_ed25519`), `--connect-via private` (when the
+control node runs inside the VNet, e.g. via Bastion — required with
+`--no-public-ip` deployments). The generated `inventory.ini` is git-ignored
+(per-deploy IPs); regenerate it after every deploy.
+
 ## Teardown & cost warning
 
-> **Cost warning:** these VMs (default `Standard_D4s_v5`) bill while running.
+> **Cost warning:** these VMs (default `Standard_D2s_v5`) bill while running.
 > Tear the scenario down as soon as a benchmark run completes.
 
 ```bash
