@@ -1,0 +1,25 @@
+#cloud-config
+# Minimal, OPTIONAL provisioning for a tonic-h3 benchmark node (Ubuntu 22.04 LTS).
+# Enable with `enableCloudInit = true` (see main.bicep / *.bicepparam).
+# Intentionally minimal: it installs build prerequisites only. The Rust toolchain
+# and the benchmark binaries are deployed by the harness / operator, not here.
+package_update: true
+package_upgrade: false
+packages:
+  - build-essential
+  - curl
+  - pkg-config
+  - libssl-dev
+  - ca-certificates
+write_files:
+  - path: /etc/tonic-h3-bench.motd
+    permissions: '0644'
+    content: |
+      tonic-h3 benchmark node.
+      Build prerequisites (build-essential, curl, pkg-config, libssl-dev) are installed.
+      To install the Rust toolchain (per-user, non-interactive):
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+        source "$HOME/.cargo/env"
+      Data-plane benchmark traffic must use the peer node's PRIVATE IP.
+runcmd:
+  - [ bash, -lc, "cat /etc/tonic-h3-bench.motd > /etc/motd || true" ]
