@@ -1,0 +1,8 @@
+# Compiled ARM JSON emitted by `az bicep build` / `az bicep build-params`.
+# Only Bicep source is committed; ARM JSON is a build artifact.
+*.json
+
+# Generated Ansible inventory (per-deployment IPs; regenerate via inventory.py).
+ansible/inventory.ini
+
+__pycache__/
