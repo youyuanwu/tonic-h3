@@ -91,13 +91,13 @@ jobs:
     - uses: taiki-e/install-action@cargo-llvm-cov
 
     - name: Run cargo check
-      run: cargo +${{ matrix.rust }} check --all-targets
+      run: cargo +${{ matrix.rust }} check --locked --all-targets
 
     - name: Run cargo fmt
       run: cargo +${{ matrix.rust }} fmt --all -- --check
     
     - name: Run cargo clippy
-      run: cargo +${{ matrix.rust }} clippy --all-targets -- -D warnings
+      run: cargo +${{ matrix.rust }} clippy --locked --all-targets -- -D warnings
 
     - uses: actions/setup-dotnet@v6
       with:
@@ -107,22 +107,22 @@ jobs:
       run: dotnet build
 
     - name: cargo build all (needed for example tests)
-      run: cargo +${{ matrix.rust }} build --all-targets
+      run: cargo +${{ matrix.rust }} build --locked --all-targets
 
     - name: run all rust unittests
-      run: cargo +${{ matrix.rust }} test --all-targets
+      run: cargo +${{ matrix.rust }} test --locked --all-targets
 
     - name: run rust doctests
-      run: cargo +${{ matrix.rust }} test --workspace --doc
+      run: cargo +${{ matrix.rust }} test --locked --workspace --doc
 
     - name: check crate packaging
-      run: cargo +${{ matrix.rust }} package -p tonic-h3 -p h3-util -p h3-util -p axum-h3 --allow-dirty
+      run: cargo +${{ matrix.rust }} package --locked -p tonic-h3 -p h3-util -p h3-util -p axum-h3 --allow-dirty
 
     - name: Run llvm-cov
-      run: cargo +${{ matrix.rust }} llvm-cov --codecov --output-path codecov.json --ignore-filename-regex "tonic-h3-tests.*|external.*" --features llvm-cov-mode
+      run: cargo +${{ matrix.rust }} llvm-cov --locked --codecov --output-path codecov.json --ignore-filename-regex "tonic-h3-tests.*|external.*" --features llvm-cov-mode
 
     - name: Show cov summary
-      run: cargo +${{ matrix.rust }} llvm-cov report --summary-only --ignore-filename-regex "tonic-h3-tests.*|external.*"
+      run: cargo +${{ matrix.rust }} llvm-cov report --locked --summary-only --ignore-filename-regex "tonic-h3-tests.*|external.*"
 
     - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v7
