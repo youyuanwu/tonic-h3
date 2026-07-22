@@ -27,6 +27,9 @@ Compatibility with grpc-dotnet with http3 is tested [here](./dotnet/).
 * [h3-util](./h3-util/) Http3 server and client utilities used by `axum-h3` and `tonic-h3`.
 * Other quic wrapping crates to support alternative quic implementations.
 
+## Benchmarks
+* [tests/bench](./tests/bench/) A gRPC echo benchmark harness (`bench-server` / `bench-client`) that compares throughput and latency across all transports (TCP+TLS baseline plus quinn/msquic/s2n-quic/quiche over HTTP/3).
+
 ## Get started
 Add deps to your cargo.toml
 ```toml
