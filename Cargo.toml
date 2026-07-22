@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = [ "tonic-h3", "tonic-h3-tests", "h3-util", "axum-h3"]
+members = [ "tonic-h3", "tonic-h3-tests", "h3-util", "axum-h3", "tests/bench"]
 package.edition = "2024"
 
 [workspace.dependencies]
@@ -35,6 +35,11 @@ msquic = { version = "2.5.1-beta", default-features = false, features = ["find"]
 axum = {version = "0.8", default-features = false}
 http-body-util = "0.1"
 bytes = "1"
+
+# benchmark harness deps
+clap = { version = "4", default-features = false, features = ["std", "help", "usage", "error-context"] }
+tonic-tls = { version = "0.7", default-features = false }
+hdrhistogram = { version = "7", default-features = false }
 
 # quiche-h3 bridge crate (implements the h3::quic traits over tokio-quiche)
 quiche-h3 = "0.0.2"

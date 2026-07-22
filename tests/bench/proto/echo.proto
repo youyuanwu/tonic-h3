@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package echo;
+
+// A minimal echo service used for transport benchmarking. The request payload
+// is returned unchanged in the reply. Using a `bytes` payload lets the client
+// vary message size to explore small-control-message and large-payload regimes.
+service Echo {
+  rpc Echo (EchoRequest) returns (EchoReply) {}
+}
+
+message EchoRequest {
+  bytes payload = 1;
+}
+
+message EchoReply {
+  bytes payload = 1;
+}
