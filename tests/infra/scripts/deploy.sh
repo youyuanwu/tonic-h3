@@ -27,6 +27,10 @@
 #                             must support Accelerated Networking + Premium storage)
 #   -s, --suffix SUFFIX       Optional resource-name suffix (default: none, i.e.
 #                             clean names like tonich3-client)
+#       --image-publisher PUB Marketplace image publisher (default: Canonical)
+#       --image-offer OFFER   Marketplace image offer (default: ubuntu-26_04-lts,
+#                             chosen to match the build host's glibc)
+#       --image-sku SKU       Marketplace image SKU (default: server, Gen2 x64)
 #   -n, --no-public-ip        Do not attach management public IPs (Bastion mode)
 #       --what-if             Preview changes only (az deployment ... --what-if)
 #   -h, --help                Show this help
@@ -52,6 +56,9 @@ SSH_KEY_FILE="${HOME}/.ssh/id_ed25519.pub"
 VM_SIZE=""
 ADMIN_CIDR=""
 SUFFIX=""
+IMAGE_PUBLISHER=""
+IMAGE_OFFER=""
+IMAGE_SKU=""
 EXTRA_PARAMS=()
 WHATIF=""
 
@@ -64,6 +71,9 @@ while [[ $# -gt 0 ]]; do
     -m|--vm-size)        VM_SIZE="$2"; shift 2 ;;
     -c|--admin-cidr)     ADMIN_CIDR="$2"; shift 2 ;;
     -s|--suffix)         SUFFIX="$2"; shift 2 ;;
+    --image-publisher)   IMAGE_PUBLISHER="$2"; shift 2 ;;
+    --image-offer)       IMAGE_OFFER="$2"; shift 2 ;;
+    --image-sku)         IMAGE_SKU="$2"; shift 2 ;;
     -n|--no-public-ip)   EXTRA_PARAMS+=("enablePublicIpForSsh=false"); shift ;;
     --what-if)           WHATIF="--what-if"; shift ;;
     -h|--help)           usage; exit 0 ;;
@@ -121,6 +131,8 @@ echo "==> ssh key file    : ${SSH_KEY_FILE}"
 [[ -n "${VM_SIZE}" ]] && echo "==> vm size         : ${VM_SIZE}"
 echo "==> admin ssh CIDR  : ${ADMIN_CIDR}"
 [[ -n "${SUFFIX}" ]] && echo "==> suffix override : ${SUFFIX}"
+[[ -n "${IMAGE_OFFER}" || -n "${IMAGE_SKU}" || -n "${IMAGE_PUBLISHER}" ]] && \
+  echo "==> image override  : ${IMAGE_PUBLISHER:-Canonical}:${IMAGE_OFFER:-ubuntu-26_04-lts}:${IMAGE_SKU:-server}"
 [[ ${#EXTRA_PARAMS[@]} -gt 0 ]] && echo "==> extra params    : ${EXTRA_PARAMS[*]}"
 [[ -n "${WHATIF}" ]] && echo "==> mode            : what-if (preview only)"
 
@@ -132,6 +144,9 @@ OVERRIDES=("location=${LOCATION}")
 [[ -n "${SECONDARY_LOCATION}" ]] && OVERRIDES+=("secondaryLocation=${SECONDARY_LOCATION}")
 [[ -n "${VM_SIZE}" ]] && OVERRIDES+=("vmSize=${VM_SIZE}")
 [[ -n "${SUFFIX}" ]] && OVERRIDES+=("nameSuffix=${SUFFIX}")
+[[ -n "${IMAGE_PUBLISHER}" ]] && OVERRIDES+=("imagePublisher=${IMAGE_PUBLISHER}")
+[[ -n "${IMAGE_OFFER}" ]] && OVERRIDES+=("imageOffer=${IMAGE_OFFER}")
+[[ -n "${IMAGE_SKU}" ]] && OVERRIDES+=("imageSku=${IMAGE_SKU}")
 if [[ ${#EXTRA_PARAMS[@]} -gt 0 ]]; then
   OVERRIDES+=("${EXTRA_PARAMS[@]}")
 fi

@@ -17,7 +17,7 @@ load against a **server** node, so the maintainers can compare:
 ## What it deploys
 
 For each run you pick one of three **network topologies**. Every topology
-provisions exactly one **client** VM and one **server** VM (Ubuntu 22.04 LTS,
+provisions exactly one **client** VM and one **server** VM (Ubuntu 26.04 LTS,
 Accelerated Networking on), plus the VNet(s), subnet(s) and NSG(s) to connect
 them **privately**:
 

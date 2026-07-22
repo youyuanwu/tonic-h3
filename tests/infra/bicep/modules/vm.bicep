@@ -38,6 +38,15 @@ param ppgId string = ''
 @description('Attach a Standard public IP for management SSH. Disable to use Azure Bastion instead.')
 param enablePublicIp bool = true
 
+@description('Marketplace image publisher.')
+param imagePublisher string = 'Canonical'
+
+@description('Marketplace image offer. Default is Ubuntu 26.04 LTS (Gen2), matching the build host so prebuilt binaries link against a compatible glibc.')
+param imageOffer string = 'ubuntu-26_04-lts'
+
+@description('Marketplace image SKU. For the ubuntu-26_04-lts offer, "server" is the Gen2 x64 image.')
+param imageSku string = 'server'
+
 @description('Resource tags.')
 param tags object = {}
 
@@ -108,9 +117,9 @@ resource vm 'Microsoft.Compute/virtualMachines@2024-03-01' = {
     }
     storageProfile: {
       imageReference: {
-        publisher: 'Canonical'
-        offer: '0001-com-ubuntu-server-jammy'
-        sku: '22_04-lts-gen2'
+        publisher: imagePublisher
+        offer: imageOffer
+        sku: imageSku
         version: 'latest'
       }
       osDisk: {

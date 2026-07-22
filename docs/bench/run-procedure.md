@@ -35,11 +35,14 @@ cargo build --release -p tonic-h3-bench
 > ### libc-compatibility constraint (read this)
 > `deploy-bench.yml`'s primary strategy is to **copy the locally built binaries**
 > onto the VMs. Those binaries are dynamically linked against the control node's
-> **glibc**, so the control node's glibc must be **≤** the VMs' (Ubuntu 22.04,
-> glibc 2.35). Building on Ubuntu 22.04 (or an equivalent/older glibc, e.g. in a
-> `ubuntu:22.04` container) is safe. Building on a *newer* distro can yield
-> binaries that fail on the VM with a `GLIBC_x.yz not found` error. If that
-> applies to you, use the **build-on-VM fallback** in
+> **glibc**, so the control node's glibc must be **≤** the VMs'. The Bicep default
+> image is now **Ubuntu 26.04 LTS** (`imageOffer=ubuntu-26_04-lts`), chosen to
+> match the maintainers' build host so prebuilt binaries load without a
+> `GLIBC_x.yz not found` error. If **your** build host is newer than the VM image,
+> either override the image to match your build host
+> (`deploy.sh ... --image-offer <offer> --image-sku <sku>`, or pass the
+> `imageOffer`/`imageSku` Bicep params directly), build in a container matching
+> the VM's release, or use the **build-on-VM fallback** in
 > [Step 3b](#step-3b--build-on-vm-fallback-glibc-mismatch) *instead of* Step 3.
 
 ## Step 1 — provision the VMs
@@ -86,8 +89,9 @@ This ([`deploy-bench.yml`](../../tests/infra/ansible/deploy-bench.yml)):
 
 1. asserts `target/release/bench-server|bench-client` exist on the control node;
 2. installs the **packages.microsoft.com** apt repo and **`libmsquic`**
-   (version-pinned to `2.4.8`, matching repo CI — override with
-   `-e bench_libmsquic_version=...`, or `""` for latest) on both VMs;
+   (version-pinned to `2.5.8`, matching the build host and the Ubuntu 26.04
+   pool — override with `-e bench_libmsquic_version=...`, or `""` for latest) on
+   both VMs;
 3. copies both binaries to `~/bench/` (`mode 0755`);
 4. runs `bench-server --help` / `bench-client --help` on each VM as a smoke test
    that also proves `libmsquic.so.2` loads.
@@ -136,7 +140,7 @@ ansible-playbook run-bench.yml \
   -e topology=same-zone \
   -e vm_size=Standard_D2s_v5 \
   -e region=eastus2 \
-  -e bench_libmsquic_version=2.4.8
+  -e bench_libmsquic_version=2.5.8
 # override the scenario list from a file:
 ansible-playbook run-bench.yml -e @scenarios.yml -e topology=same-zone -e vm_size=Standard_D2s_v5 -e region=eastus2
 # build-on-VM fallback path (Step 3b): also pass the VM-built binary dir
