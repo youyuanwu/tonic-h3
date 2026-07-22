@@ -1,0 +1,49 @@
+[package]
+name = "tonic-h3-bench"
+version = "0.1.0"
+edition.workspace = true
+publish = false
+description = "gRPC echo benchmark harness for tonic-h3 across TCP+TLS and QUIC transports"
+
+[lib]
+name = "tonic_h3_bench"
+path = "src/lib.rs"
+
+[[bin]]
+name = "bench-server"
+path = "src/bin/bench-server.rs"
+
+[[bin]]
+name = "bench-client"
+path = "src/bin/bench-client.rs"
+
+[dependencies]
+tonic-h3 = { workspace = true, features = ["quinn", "msquic", "s2n-quic", "quiche"] }
+tonic.workspace = true
+tonic-prost.workspace = true
+prost.workspace = true
+h3-util.workspace = true
+h3.workspace = true
+# need to enable rustls for quinn
+quinn = { workspace = true, default-features = false, features = ["aws-lc-rs", "rustls-aws-lc-rs", "runtime-tokio", "log"] }
+# link msquic native library
+msquic.workspace = true
+# TCP+TLS (HTTP/2) baseline
+tonic-tls = { workspace = true, features = ["rustls"] }
+rustls.workspace = true
+rcgen.workspace = true
+bytes.workspace = true
+futures.workspace = true
+tokio = { workspace = true, features = ["full"] }
+tokio-util.workspace = true
+tracing.workspace = true
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+http.workspace = true
+clap = { workspace = true, features = ["derive"] }
+hdrhistogram.workspace = true
+
+[build-dependencies]
+tonic-prost-build.workspace = true
+
+[package.metadata.rust-analyzer]
+cargo.loadOutDirsFromCheck = true
