@@ -52,12 +52,15 @@ identity — topology, VM size, transport, payload, concurrency, request budget,
 a UTC timestamp, and a random run id:
 
 ```
-result-<topology>-<vmsize>-<transport>-p<payload>-c<concurrency>-<budget>-<utc>-<runid>.json
-result-...-<runid>.meta.json
+result-<topology>-<vmsize>-<transport>-p<payload>-c<concurrency>-<budget>-<utc>-<runid>-s<NNN>.json
+result-...-s<NNN>.meta.json      # provenance (incl. libmsquic version, git commit)
+result-...-s<NNN>.client.log     # client stderr   (always fetched)
+result-...-s<NNN>.server.log     # server stdout   (always fetched)
 ```
 
-so runs from different days, machines, and SKUs **never collide** and can be
-aggregated later. The client emits **JSON** (`--format json`) precisely so this
+so runs from different days, machines, and SKUs **never collide** (the
+zero-padded scenario index `-s<NNN>` also keeps duplicate scenarios within one
+invocation distinct) and can be aggregated later. The client emits **JSON** (`--format json`) precisely so this
 aggregation stays robust as the dataset grows. See
 [`scenario-matrix.md`](scenario-matrix.md#vm-sku-sweep) for the intended SKU
 progression.

@@ -1,27 +1,62 @@
 ---
-# One benchmark scenario: start server -> wait ready -> run client -> capture,
-# then ALWAYS fetch results and stop the server. Included in a loop by
-# run-bench.yml with loop_var `scenario`.
+# One benchmark scenario: write metadata -> start server -> wait ready ->
+# run client -> capture, then ALWAYS fetch every artifact (result, metadata,
+# client stderr, server log) and stop the server. Included in a loop by
+# run-bench.yml with loop_var `scenario` and index_var `scenario_index`.
 #
 # Available context: `scenario` (transport/payload_size/concurrency and one of
-# count|duration, optional `port`), the play vars, and run_ts/run_id/git_commit.
-- name: "Scenario {{ scenario.transport }} p{{ scenario.payload_size }} c{{ scenario.concurrency }}"
+# count|duration, optional `port`), `scenario_index` (0-based position in the
+# matrix, kept in the filename so duplicate/near-duplicate scenarios in the same
+# invocation never collide), the play vars, and run_ts/run_id/git_commit.
+- name: "Scenario #{{ scenario_index }} {{ scenario.transport }} p{{ scenario.payload_size }} c{{ scenario.concurrency }}"
   vars:
     # quiche stalls above concurrency 1 (see tests/bench/README.md); force it.
     eff_conc: "{{ 1 if scenario.transport == 'quiche' else scenario.concurrency }}"
     port: "{{ scenario.port | default(bench_port) }}"
-    # Exactly one of count/duration is present per scenario.
+    # Exactly one of count/duration is present per scenario (validated upfront).
     budget_args: "{{ ('--count ' ~ scenario.count) if scenario.count is defined else ('--duration ' ~ scenario.duration) }}"
     budget_label: "{{ ('n' ~ scenario.count) if scenario.count is defined else ('d' ~ scenario.duration ~ 's') }}"
     # Server private IP (loopback 127.0.0.1 in the local dry-run inventory).
     server_ip: "{{ hostvars['server'].private_ip }}"
-    result_base: "result-{{ topology }}-{{ vm_size }}-{{ scenario.transport }}-p{{ scenario.payload_size }}-c{{ eff_conc }}-{{ budget_label }}-{{ run_ts }}-{{ run_id }}"
+    # A zero-padded scenario index guarantees uniqueness within one invocation;
+    # run_ts + run_id keep runs unique across invocations/machines/SKUs.
+    result_base: "result-{{ topology }}-{{ vm_size }}-{{ scenario.transport }}-p{{ scenario.payload_size }}-c{{ eff_conc }}-{{ budget_label }}-{{ run_ts }}-{{ run_id }}-s{{ '%03d' % (scenario_index | int) }}"
     remote_result: "{{ bench_results_dir_remote }}/{{ result_base }}.json"
     remote_meta: "{{ bench_results_dir_remote }}/{{ result_base }}.meta.json"
     remote_log: "{{ bench_results_dir_remote }}/{{ result_base }}.server.log"
     remote_pid: "{{ bench_results_dir_remote }}/{{ result_base }}.server.pid"
     remote_client_err: "{{ bench_results_dir_remote }}/{{ result_base }}.client.log"
   block:
+    - name: Write the scenario metadata sidecar (on the client, before startup)
+      # Written first so provenance is always fetchable even if the scenario
+      # fails during server startup or the client run.
+      ansible.builtin.copy:
+        dest: "{{ remote_meta }}"
+        mode: "0644"
+        content: "{{ meta | to_nice_json }}"
+      vars:
+        meta:
+          scenario_index: "{{ scenario_index | int }}"
+          topology: "{{ topology }}"
+          vm_size: "{{ vm_size }}"
+          region: "{{ region }}"
+          transport: "{{ scenario.transport }}"
+          payload_size: "{{ scenario.payload_size }}"
+          concurrency: "{{ eff_conc | int }}"
+          requested_concurrency: "{{ scenario.concurrency }}"
+          budget: "{{ ('count=' ~ scenario.count) if scenario.count is defined else ('duration=' ~ scenario.duration ~ 's') }}"
+          port: "{{ port | int }}"
+          libmsquic_version: "{{ bench_libmsquic_version | default('unknown') }}"
+          git_commit: "{{ git_commit }}"
+          run_ts: "{{ run_ts }}"
+          run_id: "{{ run_id }}"
+          client_vm: "{{ hostvars['client'].vm_name | default('unknown') }}"
+          server_vm: "{{ hostvars['server'].vm_name | default('unknown') }}"
+          client_private_ip: "{{ hostvars['client'].private_ip | default('unknown') }}"
+          server_private_ip: "{{ server_ip }}"
+          result_file: "{{ result_base }}.json"
+      delegate_to: client
+
     - name: "Start bench-server ({{ scenario.transport }}) on the server host"
       ansible.builtin.shell:
         cmd: >-
@@ -41,31 +76,6 @@
         timeout: "{{ bench_ready_timeout }}"
       delegate_to: server
 
-    - name: Write the scenario metadata sidecar (on the client)
-      ansible.builtin.copy:
-        dest: "{{ remote_meta }}"
-        mode: "0644"
-        content: "{{ meta | to_nice_json }}"
-      vars:
-        meta:
-          topology: "{{ topology }}"
-          vm_size: "{{ vm_size }}"
-          region: "{{ region }}"
-          transport: "{{ scenario.transport }}"
-          payload_size: "{{ scenario.payload_size }}"
-          concurrency: "{{ eff_conc | int }}"
-          requested_concurrency: "{{ scenario.concurrency }}"
-          budget: "{{ ('count=' ~ scenario.count) if scenario.count is defined else ('duration=' ~ scenario.duration ~ 's') }}"
-          port: "{{ port | int }}"
-          git_commit: "{{ git_commit }}"
-          run_ts: "{{ run_ts }}"
-          run_id: "{{ run_id }}"
-          client_vm: "{{ hostvars['client'].vm_name | default('unknown') }}"
-          server_vm: "{{ hostvars['server'].vm_name | default('unknown') }}"
-          client_private_ip: "{{ hostvars['client'].private_ip | default('unknown') }}"
-          server_private_ip: "{{ server_ip }}"
-          result_file: "{{ result_base }}.json"
-
     - name: "Run bench-client ({{ scenario.transport }}) and capture JSON result"
       ansible.builtin.shell:
         cmd: >-
@@ -82,15 +92,24 @@
       delegate_to: client
 
   rescue:
-    - name: Note the scenario failure (matrix continues)
+    - name: Record the scenario failure (matrix continues, play fails at the end)
+      # Accumulate onto a play-scoped list so run-bench.yml can report an
+      # accurate summary and fail once, after every scenario has been cleaned up.
+      ansible.builtin.set_fact:
+        failed_scenarios: "{{ failed_scenarios | default([]) + [result_base] }}"
+
+    - name: Note the scenario failure
       ansible.builtin.debug:
         msg: >-
-          Scenario {{ scenario.transport }} p{{ scenario.payload_size }}
-          c{{ eff_conc }} FAILED; partial result/metadata (if any) will still be
-          fetched. See {{ remote_client_err }} / {{ remote_log }} on the VMs.
+          Scenario #{{ scenario_index }} {{ scenario.transport }}
+          p{{ scenario.payload_size }} c{{ eff_conc }} FAILED; the result may be
+          empty. See the fetched {{ result_base }}.client.log /
+          {{ result_base }}.server.log for the cause.
 
   always:
-    - name: Fetch result + metadata to the local results directory
+    - name: Fetch all scenario artifacts to the local results directory
+      # Result + metadata + client stderr + server log, so a failed scenario
+      # still leaves a durable, self-explanatory record locally.
       ansible.builtin.fetch:
         src: "{{ item }}"
         dest: "{{ bench_results_dir_local }}/"
@@ -98,6 +117,8 @@
       loop:
         - "{{ remote_result }}"
         - "{{ remote_meta }}"
+        - "{{ remote_client_err }}"
+        - "{{ remote_log }}"
       delegate_to: client
       ignore_errors: true
 

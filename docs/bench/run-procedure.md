@@ -38,15 +38,9 @@ cargo build --release -p tonic-h3-bench
 > **glibc**, so the control node's glibc must be **≤** the VMs' (Ubuntu 22.04,
 > glibc 2.35). Building on Ubuntu 22.04 (or an equivalent/older glibc, e.g. in a
 > `ubuntu:22.04` container) is safe. Building on a *newer* distro can yield
-> binaries that fail on the VM with a `GLIBC_x.yz not found` error.
->
-> **Build-on-VM fallback.** If your control node's glibc is too new (or you'd
-> rather not cross-build), install the toolchain on the VMs instead and build
-> there: `apt install libmsquic-dev protobuf-compiler`, install `rustup`, then
-> `cargo build --release -p tonic-h3-bench` on each VM and point
-> `bench_dest_dir` at the VM-built `target/release`. This trades deploy speed
-> for guaranteed ABI compatibility. The copy-prebuilt path is preferred; use
-> this only when the constraint above bites.
+> binaries that fail on the VM with a `GLIBC_x.yz not found` error. If that
+> applies to you, use the **build-on-VM fallback** in
+> [Step 3b](#step-3b--build-on-vm-fallback-glibc-mismatch) *instead of* Step 3.
 
 ## Step 1 — provision the VMs
 
@@ -100,7 +94,40 @@ This ([`deploy-bench.yml`](../../tests/infra/ansible/deploy-bench.yml)):
 
 Useful overrides: `-e bench_bin_dir=/path/to/target/release`,
 `-e bench_dest_dir=/usr/local/bin` (add `-e ansible_become=true` for system
-dirs).
+dirs). If you pin a non-default `-e bench_libmsquic_version=...` here, pass the
+**same** value to `run-bench.yml` in Step 4 so it is recorded in each result's
+metadata sidecar.
+
+### Step 3b — build-on-VM fallback (glibc mismatch)
+
+Use this **instead of Step 3** only when the
+[libc-compatibility constraint](#step-0--build-the-release-binaries-locally)
+prevents copying control-node binaries (control-node glibc newer than the VMs').
+It builds the binaries **on each VM**, so ABI compatibility is guaranteed. Run
+from `tests/infra/ansible/` (inventory already generated in Step 2):
+
+```bash
+# 1. Install libmsquic runtime + build toolchain deps on both VMs
+ansible bench -b -m apt \
+  -a "name=libmsquic,libmsquic-dev,protobuf-compiler,build-essential,pkg-config,git update_cache=true"
+
+# 2. Install rustup + the pinned toolchain on both VMs (rust-toolchain.toml is honored)
+ansible bench -m shell \
+  -a "command=command -v cargo || (curl -sSf https://sh.rustup.rs | sh -s -- -y)"
+
+# 3. Clone the repo at the exact revision you are benchmarking on both VMs
+ansible bench -m git \
+  -a "repo=https://github.com/youyuanwu/tonic-h3 dest=~/tonic-h3 version=$(git rev-parse HEAD)"
+
+# 4. Build the release binaries on each VM
+ansible bench -m shell \
+  -a "chdir=~/tonic-h3 cmd=~/.cargo/bin/cargo build --release -p tonic-h3-bench"
+```
+
+Then in Step 4 point `bench_dest_dir` at the VM-built binaries so no copy is
+attempted: `-e bench_dest_dir=~/tonic-h3/target/release`. (The `libmsquic`
+runtime was installed in sub-step 1, so the copy-based `deploy-bench.yml` is not
+needed on this path.)
 
 ## Step 4 — run the benchmark matrix
 
@@ -108,10 +135,20 @@ dirs).
 ansible-playbook run-bench.yml \
   -e topology=same-zone \
   -e vm_size=Standard_D2s_v5 \
-  -e region=eastus2
+  -e region=eastus2 \
+  -e bench_libmsquic_version=2.4.8
 # override the scenario list from a file:
 ansible-playbook run-bench.yml -e @scenarios.yml -e topology=same-zone -e vm_size=Standard_D2s_v5 -e region=eastus2
+# build-on-VM fallback path (Step 3b): also pass the VM-built binary dir
+ansible-playbook run-bench.yml -e topology=same-zone -e vm_size=Standard_D2s_v5 -e region=eastus2 -e bench_dest_dir=~/tonic-h3/target/release
 ```
+
+Pass `bench_libmsquic_version` matching what Step 3 installed so it is captured
+in each metadata sidecar. Malformed scenarios (missing transport, or not exactly
+one of `count`/`duration`) are rejected by a preflight `assert` before any
+server starts. If any scenario fails, the matrix still completes and cleans up,
+then the play exits non-zero with a summary (opt out with
+`-e bench_fail_on_scenario_error=false`).
 
 For each scenario ([`run-bench.yml`](../../tests/infra/ansible/run-bench.yml) →
 [`tasks/run-scenario.yml`](../../tests/infra/ansible/tasks/run-scenario.yml)),
@@ -136,25 +173,39 @@ distinguishable. See the [scenario matrix](scenario-matrix.md) for the axes.
 
 ### Where results land
 
+Each scenario produces four files, all suffixed with a per-run `<utc>-<runid>`
+and a zero-padded scenario index `-sNNN` so nothing collides within or across
+runs:
+
 ```
 tests/infra/ansible/results/
-├── result-same-zone-Standard_D2s_v5-quinn-p64-c16-n20000-<utc>-<runid>.json
-├── result-same-zone-Standard_D2s_v5-quinn-p64-c16-n20000-<utc>-<runid>.meta.json
+├── result-same-zone-Standard_D2s_v5-quinn-p64-c16-n20000-<utc>-<runid>-s000.json        # client result (JSON)
+├── result-same-zone-Standard_D2s_v5-quinn-p64-c16-n20000-<utc>-<runid>-s000.meta.json   # provenance sidecar
+├── result-same-zone-Standard_D2s_v5-quinn-p64-c16-n20000-<utc>-<runid>-s000.client.log  # client stderr
+├── result-same-zone-Standard_D2s_v5-quinn-p64-c16-n20000-<utc>-<runid>-s000.server.log  # server stdout/stderr
 └── ...
 ```
 
 The `.json` is the machine-readable client result (schema in the
 [bench README](../../tests/bench/README.md#machine-readable-output---format-json));
-the `.meta.json` records provenance (topology, VM size, region, transport,
-payload, concurrency, budget, git commit, timestamps, both VM names/private IPs).
-This directory is **git-ignored** — curate the numbers you care about into
-[`results-template.md`](results-template.md).
+the `.meta.json` records provenance (scenario index, topology, VM size, region,
+transport, payload, concurrency, budget, libmsquic version, git commit,
+timestamps, both VM names/private IPs). The `.client.log` / `.server.log` are the
+raw stderr/stdout — always fetched, so even a **failed** scenario leaves a
+durable, self-explanatory record. This directory is **git-ignored** — curate the
+numbers you care about into [`results-template.md`](results-template.md).
 
 ## Step 5 — tear down (stop paying)
 
+Steps 2–4 leave you in `tests/infra/ansible/`. Return to the repo root first (or
+use the relative path shown), so the script resolves correctly:
+
 ```bash
-tests/infra/scripts/teardown.sh same-zone        # prompts for confirmation
-tests/infra/scripts/teardown.sh same-zone --yes  # non-interactive
+cd -                                              # back to the repo root
+./tests/infra/scripts/teardown.sh same-zone       # prompts for confirmation
+./tests/infra/scripts/teardown.sh same-zone --yes # non-interactive
+# …or, without leaving tests/infra/ansible/:
+../scripts/teardown.sh same-zone
 ```
 
 > **Cost warning:** the VMs bill while running. Tear the resource group down as
