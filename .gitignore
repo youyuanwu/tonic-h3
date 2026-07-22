@@ -1,5 +1,7 @@
 target
 obj
 bin
+# Rust source binary targets for the bench crate are real source, not build output.
+!tests/bench/src/bin/
 .vscode
 codecov.json

@@ -20,10 +20,26 @@ pub async fn run_client(args: &ClientArgs) -> Result<BenchSummary, BenchError> {
 
     match args.transport {
         Transport::TcpTls => {
-            let channel = connect_tcp_tls(&args.addr).await?;
+            // Bound the eager TCP connect + TLS handshake by the connect timeout
+            // so a stalled SYN/handshake fails fast (the preflight RPC timeout
+            // only covers the request, not this pre-connection step).
+            let channel = match tokio::time::timeout(
+                cfg.connect_timeout,
+                connect_tcp_tls(&args.addr),
+            )
+            .await
+            {
+                Ok(res) => res?,
+                Err(_) => {
+                    return Err(format!(
+                        "tcp-tls connect timed out after {:?}; is the server running?",
+                        cfg.connect_timeout
+                    )
+                    .into());
+                }
+            };
             let client = EchoClient::new(channel);
-            let summary = drive_load(client, cfg).await?;
-            Ok(summary)
+            drive_load(client, cfg).await
         }
         Transport::Quinn => {
             let endpoint = make_quinn_client_endpoint()?;
@@ -34,10 +50,11 @@ pub async fn run_client(args: &ClientArgs) -> Result<BenchSummary, BenchError> {
             );
             let channel = tonic_h3::H3Channel::new(connector, uri.clone(), None);
             let client = EchoClient::new(channel);
-            let summary = drive_load(client, cfg).await?;
+            // Capture the result so teardown always runs, even on error.
+            let result = drive_load(client, cfg).await;
             // Client teardown: explicit close is preferred over wait_idle.
             endpoint.close(0u16.into(), b"client done");
-            Ok(summary)
+            result
         }
         Transport::S2nQuic => {
             let s2n_ep = make_s2n_client_endpoint()?;
@@ -48,9 +65,8 @@ pub async fn run_client(args: &ClientArgs) -> Result<BenchSummary, BenchError> {
             );
             let channel = tonic_h3::H3Channel::new(connector, uri.clone(), None);
             let client = EchoClient::new(channel);
-            let summary = drive_load(client, cfg).await?;
             // s2n has no close; the client process exits immediately after.
-            Ok(summary)
+            drive_load(client, cfg).await
         }
         Transport::Quiche => {
             use h3_util::quiche_h3::H3QuicheClientConfig;
@@ -64,9 +80,8 @@ pub async fn run_client(args: &ClientArgs) -> Result<BenchSummary, BenchError> {
             );
             let channel = tonic_h3::H3Channel::new(connector, uri.clone(), None);
             let client = EchoClient::new(channel);
-            let summary = drive_load(client, cfg).await?;
             // The quiche connector holds no persistent endpoint; nothing to close.
-            Ok(summary)
+            drive_load(client, cfg).await
         }
         Transport::Msquic => {
             let (reg, config) = make_msquic_client_parts()?;
@@ -74,13 +89,14 @@ pub async fn run_client(args: &ClientArgs) -> Result<BenchSummary, BenchError> {
                 h3_util::msquic::client::H3MsQuicConnector::new(config, reg.clone(), uri.clone());
             let channel = tonic_h3::H3Channel::new(connector, uri.clone(), None);
             let client = EchoClient::new(channel);
-            let summary = drive_load(client, cfg).await?;
+            // Capture the result so registration teardown always runs.
+            let result = drive_load(client, cfg).await;
             // Teardown: shut down the registration, wait idle, then drop so the
             // final RegistrationClose does not block the runtime.
             reg.shutdown();
             reg.wait_idle().await;
             std::mem::drop(reg);
-            Ok(summary)
+            result
         }
     }
 }
@@ -148,10 +164,13 @@ fn make_msquic_client_parts() -> Result<
     .map_err(|e| format!("msquic registration: {e}"))?;
 
     let alpn = msquic::BufferRef::from("h3");
+    // Allow enough peer-initiated streams for benchmark concurrency (each
+    // in-flight echo RPC opens a bidirectional stream). Kept well above the
+    // client's default/typical worker counts so msquic is not stream-starved.
     let client_settings = msquic::Settings::new()
         .set_IdleTimeoutMs(1000)
-        .set_PeerBidiStreamCount(10)
-        .set_PeerUnidiStreamCount(10);
+        .set_PeerBidiStreamCount(1024)
+        .set_PeerUnidiStreamCount(1024);
     let client_config = reg
         .open_configuration(&[alpn], Some(&client_settings))
         .map_err(|e| format!("msquic configuration: {e}"))?;

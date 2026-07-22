@@ -44,12 +44,14 @@ where
     announce(Transport::Quinn, local);
 
     let acceptor = tonic_h3::quinn::H3QuinnAcceptor::new(endpoint.clone());
-    tonic_h3::server::H3Router::new(echo_routes())
+    // Capture the serve result so teardown always runs, even on error.
+    let result = tonic_h3::server::H3Router::new(echo_routes())
         .serve_with_shutdown(acceptor, shutdown)
-        .await?;
+        .await;
 
     endpoint.close(0u16.into(), b"server shutdown");
     endpoint.wait_idle().await;
+    result?;
     Ok(())
 }
 
@@ -127,14 +129,73 @@ where
     let acceptor = tonic_h3::quiche::H3QuicheAcceptor::new(socket, &config)?;
     // Take a shutdown handle before the acceptor is moved into the serve task.
     let endpoint = acceptor.endpoint();
-    tonic_h3::server::H3Router::new(echo_routes())
+    // Capture the serve result so teardown always runs, even on error.
+    let result = tonic_h3::server::H3Router::new(echo_routes())
         .serve_with_shutdown(acceptor, shutdown)
-        .await?;
+        .await;
 
     // Drain live connection workers so the UDP port is released promptly.
     endpoint.close(h3::error::Code::H3_NO_ERROR, b"server shutdown");
     endpoint.wait_idle().await;
+    result?;
     Ok(())
+}
+
+/// Build the platform-appropriate self-signed msquic **server** credential.
+///
+/// On Windows, msquic's schannel TLS provider needs a certificate-store entry
+/// (referenced by hash), so we ensure a `MsQuic-Test` self-signed cert exists
+/// and pass its thumbprint. On other platforms we pass PEM cert/key files. This
+/// mirrors `tonic-h3-tests`' `get_test_cred_internal`.
+#[cfg(not(target_os = "windows"))]
+fn msquic_server_cred() -> Result<h3_util::msquic::msquic_h3::msquic::Credential, BenchError> {
+    use h3_util::msquic::msquic_h3::msquic::{CertificateFile, Credential};
+
+    let (cert_path, key_path) = tls::make_test_cert_files("bench_msquic", false);
+    Ok(Credential::CertificateFile(CertificateFile::new(
+        key_path.display().to_string(),
+        cert_path.display().to_string(),
+    )))
+}
+
+#[cfg(target_os = "windows")]
+fn msquic_server_cred() -> Result<h3_util::msquic::msquic_h3::msquic::Credential, BenchError> {
+    use h3_util::msquic::msquic_h3::msquic::{CertificateHash, Credential};
+    use std::str::FromStr;
+
+    fn get_hash() -> Option<String> {
+        let cmd = "Get-ChildItem Cert:\\CurrentUser\\My | Where-Object -Property FriendlyName -EQ -Value MsQuic-Test | Select-Object -ExpandProperty Thumbprint -First 1";
+        let output = std::process::Command::new("pwsh.exe")
+            .args(["-Command", cmd])
+            .output()
+            .ok()?;
+        if !output.status.success() {
+            return None;
+        }
+        let mut s = String::from_utf8(output.stdout).ok()?;
+        while s.ends_with('\n') || s.ends_with('\r') {
+            s.pop();
+        }
+        if s.is_empty() { None } else { Some(s) }
+    }
+
+    fn gen_cert() {
+        let cmd = "New-SelfSignedCertificate -DnsName $env:computername,localhost -FriendlyName MsQuic-Test -KeyUsageProperty Sign -KeyUsage DigitalSignature -CertStoreLocation cert:\\CurrentUser\\My -HashAlgorithm SHA256 -Provider \"Microsoft Software Key Storage Provider\" -KeyExportPolicy Exportable";
+        let _ = std::process::Command::new("pwsh.exe")
+            .args(["-Command", cmd])
+            .output();
+    }
+
+    let hash = match get_hash() {
+        Some(h) => h,
+        None => {
+            gen_cert();
+            get_hash().ok_or("failed to create/find MsQuic-Test certificate")?
+        }
+    };
+    let cert_hash =
+        CertificateHash::from_str(&hash).map_err(|e| format!("invalid cert hash: {e}"))?;
+    Ok(Credential::CertificateHash(cert_hash))
 }
 
 /// msquic (HTTP/3) server. Teardown recipe: `shutdown` -> `wait_idle` ->
@@ -146,23 +207,21 @@ where
     use h3_util::msquic::msquic_h3::{
         Listener, Registration,
         msquic::{
-            self, BufferRef, CertificateFile, Credential, CredentialConfig, CredentialFlags,
-            RegistrationConfig, Settings,
+            self, BufferRef, CredentialConfig, CredentialFlags, RegistrationConfig, Settings,
         },
     };
     use h3_util::msquic::server::H3MsQuicAcceptor;
 
-    // Non-Windows: file-based self-signed credential.
-    let (cert_path, key_path) = tls::make_test_cert_files("bench_msquic", false);
-    let cred = Credential::CertificateFile(CertificateFile::new(
-        key_path.display().to_string(),
-        cert_path.display().to_string(),
-    ));
+    // Platform-appropriate self-signed server credential (Windows uses the cert
+    // store; other platforms use PEM files), mirroring the test harness.
+    let cred = msquic_server_cred()?;
 
     let alpn = [BufferRef::from("h3")];
+    // High stream limits so the server does not throttle benchmark concurrency
+    // (each in-flight echo RPC uses one bidirectional stream).
     let settings = Settings::new()
-        .set_PeerBidiStreamCount(10)
-        .set_PeerUnidiStreamCount(10)
+        .set_PeerBidiStreamCount(1024)
+        .set_PeerUnidiStreamCount(1024)
         .set_IdleTimeoutMs(1000);
 
     let reg = Registration::new(
@@ -210,9 +269,10 @@ where
 
     let acceptor = H3MsQuicAcceptor::new(listener);
     let acceptor_cp = acceptor.clone();
-    tonic_h3::server::H3Router::new(echo_routes())
+    // Capture the serve result so the teardown recipe always runs, even on error.
+    let result = tonic_h3::server::H3Router::new(echo_routes())
         .serve_with_shutdown(acceptor, shutdown)
-        .await?;
+        .await;
 
     // Teardown: stop the listener, shut down all connections, wait idle, then
     // drop config and registration last (order matters — see msquic-h3 docs).
@@ -222,6 +282,7 @@ where
     reg.wait_idle().await;
     std::mem::drop(config);
     std::mem::drop(reg);
+    result?;
     Ok(())
 }
 

@@ -52,7 +52,11 @@ message EchoReply   { bytes payload = 1; }
 ```
 
 The server echoes the request payload back unchanged. The client fills each
-request with `--payload-size` zero bytes and verifies the reply length matches.
+request with a deterministic, non-uniform `--payload-size`-byte pattern. The
+**preflight self-check** compares the reply to the request **byte-for-byte**
+(validating transport correctness, FR-009); the measured hot path then checks
+only the reply **length**, keeping per-request overhead O(1) so the correctness
+check does not distort throughput numbers.
 
 ## Building
 
@@ -94,8 +98,28 @@ cargo run -p tonic-h3-bench --bin bench-server -- --transport tcp-tls --addr 127
 cargo run -p tonic-h3-bench --bin bench-client -- --transport tcp-tls --addr 127.0.0.1:5000 --count 50000
 ```
 
-**Experimental QUIC backends** (`msquic`, `s2n-quic`, `quiche`) use the same
-flags — just change `--transport`. For `quiche`, prefer `--concurrency 1`:
+**HTTP/3 over msquic (experimental):**
+
+```bash
+# server
+cargo run -p tonic-h3-bench --bin bench-server -- --transport msquic --addr 127.0.0.1:5000
+# client
+cargo run -p tonic-h3-bench --bin bench-client -- --transport msquic --addr 127.0.0.1:5000 \
+    --count 20000 --concurrency 16
+```
+
+**HTTP/3 over s2n-quic (experimental):**
+
+```bash
+# server
+cargo run -p tonic-h3-bench --bin bench-server -- --transport s2n-quic --addr 127.0.0.1:5000
+# client
+cargo run -p tonic-h3-bench --bin bench-client -- --transport s2n-quic --addr 127.0.0.1:5000 \
+    --count 20000 --concurrency 16
+```
+
+**HTTP/3 over quiche (experimental)** — prefer `--concurrency 1` (see the
+[caveat](#transports-compared)):
 
 ```bash
 cargo run -p tonic-h3-bench --bin bench-server -- --transport quiche --addr 127.0.0.1:5000
@@ -137,11 +161,12 @@ latency p99: 15.231 ms
 | `--transport`       | *(required)*       | Transport to connect with (must match the server).   |
 | `--addr`            | `127.0.0.1:5000`   | Server address to target (`host:port`).              |
 | `--payload-size`    | `64`               | Echo payload size in bytes.                          |
-| `--concurrency`     | `16`               | Number of concurrent in-flight workers.              |
+| `--concurrency`     | `16`               | Number of concurrent in-flight workers (must be >= 1; `0` is rejected). |
 | `--count`           | `10000`\*          | Total number of requests to send. Mutually exclusive with `--duration`. |
 | `--duration`        | *(unset)*          | Run for this many **seconds** instead of a fixed count. Mutually exclusive with `--count`. |
 | `--warmup`          | *(unset)*          | Optional warmup duration in **seconds**; warmup results are discarded. |
-| `--connect-timeout` | `5`                | Connect/preflight timeout in **seconds** (fail fast when the server is unreachable). |
+| `--connect-timeout` | `5`                | Connect/preflight timeout in **seconds** (fail fast when the server is unreachable). Also bounds the TCP+TLS connect/handshake. |
+| `--request-timeout` | `30`               | Per-request timeout in **seconds**. A request exceeding it is counted as a failure so runs always terminate even if a backend stalls. |
 
 \* `--count` has no clap-level default value; when **neither** `--count` nor
 `--duration` is supplied, the client falls back to a built-in default of
@@ -159,7 +184,9 @@ Each client run has three stages:
    sessions, and the allocator settle before measurement.
 3. **Measured run** — `--concurrency` worker tasks issue echo RPCs as fast as
    they can, either until `--count` requests have been sent (workers pull from a
-   shared atomic counter) or until `--duration` seconds elapse. Each worker
+   shared atomic counter) or until `--duration` seconds elapse. Each request is
+   bounded by `--request-timeout`; a request that exceeds it (or otherwise
+   errors) is counted as a **failure** rather than hanging the run. Each worker
    records per-request latency into a local histogram; the histograms are then
    merged.
 

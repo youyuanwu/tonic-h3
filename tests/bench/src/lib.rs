@@ -113,9 +113,9 @@ pub mod cli {
         #[arg(long, default_value_t = 64)]
         pub payload_size: usize,
 
-        /// Number of concurrent in-flight workers.
-        #[arg(long, default_value_t = 16)]
-        pub concurrency: usize,
+        /// Number of concurrent in-flight workers (must be >= 1).
+        #[arg(long, default_value_t = 16, value_parser = clap::value_parser!(u32).range(1..))]
+        pub concurrency: u32,
 
         /// Total number of requests to send (mutually exclusive with --duration).
         #[arg(long, group = "load")]
@@ -133,6 +133,11 @@ pub mod cli {
         /// Connect/preflight timeout in seconds (fail fast when unreachable).
         #[arg(long, default_value_t = 5)]
         pub connect_timeout: u64,
+
+        /// Per-request timeout in seconds. A request exceeding this is counted
+        /// as a failure, so runs always terminate even if a backend stalls.
+        #[arg(long, default_value_t = 30)]
+        pub request_timeout: u64,
     }
 
     impl ClientArgs {
@@ -153,10 +158,11 @@ pub mod cli {
         pub fn load_config(&self) -> LoadConfig {
             LoadConfig {
                 payload_size: self.payload_size,
-                concurrency: self.concurrency,
+                concurrency: self.concurrency as usize,
                 limit: self.limit(),
                 warmup: self.warmup.map(Duration::from_secs),
                 connect_timeout: Duration::from_secs(self.connect_timeout),
+                request_timeout: Duration::from_secs(self.request_timeout),
             }
         }
     }
@@ -201,6 +207,18 @@ pub mod cli {
             let a =
                 ClientArgs::try_parse_from(["bench-client", "--transport", "s2n-quic"]).unwrap();
             assert_eq!(a.transport, Transport::S2nQuic);
+        }
+
+        #[test]
+        fn zero_concurrency_is_rejected() {
+            let r = ClientArgs::try_parse_from([
+                "bench-client",
+                "--transport",
+                "quinn",
+                "--concurrency",
+                "0",
+            ]);
+            assert!(r.is_err(), "--concurrency 0 must be rejected");
         }
 
         #[test]
