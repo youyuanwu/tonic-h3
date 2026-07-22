@@ -14,6 +14,12 @@ vanilla `tonic` TCP+TLS baseline. It ships two binaries:
 > "accept any certificate" client verifier** so it can run on loopback without
 > a PKI — it is **not** an example of production-grade TLS configuration.
 
+> **Running on Azure VMs?** To deploy these binaries to real Azure client/server
+> VMs and run the scenario matrix over private networking (collecting JSON
+> results across topologies and VM SKUs), see the orchestration framework under
+> [`docs/bench/`](../../docs/bench/README.md) and the Ansible playbooks in
+> [`tests/infra/ansible/`](../infra/ansible/).
+
 ## Transports compared
 
 The same echo RPC runs over five transports, selected with `--transport`:

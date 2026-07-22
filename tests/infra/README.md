@@ -97,6 +97,11 @@ tests/infra/
 └── ansible/
     ├── inventory.py                 # query az for VM private/public IPs -> inventory.ini
     ├── ping.yml                     # peer connectivity test (ICMP over private IPs)
+    ├── deploy-bench.yml             # copy bench binaries + install libmsquic on both VMs
+    ├── run-bench.yml                # run the scenario matrix over the private link
+    ├── tasks/run-scenario.yml       # per-scenario start/wait/run/capture/stop lifecycle
+    ├── scenarios.yml                # example scenario-matrix override
+    ├── inventory.local.ini          # loopback inventory for Azure-free validation
     ├── ansible.cfg                  # local defaults (inventory, host-key checking off)
     └── inventory.ini               # GENERATED per deploy (git-ignored)
 ```
@@ -226,6 +231,24 @@ Options: `inventory.py -u <user>` (SSH user, default `azureuser`), `-k <path>`
 control node runs inside the VNet, e.g. via Bastion — required with
 `--no-public-ip` deployments). The generated `inventory.ini` is git-ignored
 (per-deploy IPs); regenerate it after every deploy.
+
+## Running the benchmark (Ansible orchestration)
+
+Once the VMs are up and `inventory.ini` is generated, two further playbooks
+deploy the benchmark binaries and run the scenario matrix over the private link,
+collecting JSON results back to a git-ignored local directory:
+
+```bash
+cd tests/infra/ansible
+ansible-playbook deploy-bench.yml                                    # binaries + libmsquic
+ansible-playbook run-bench.yml -e topology=<t> -e vm_size=<sku> -e region=<loc>
+# results land in tests/infra/ansible/results/  (git-ignored)
+```
+
+The full end-to-end procedure (build → deploy infra → inventory →
+`deploy-bench.yml` → `run-bench.yml` → results → teardown), the scenario matrix,
+the libc-compatibility constraint, and the Azure-free loopback validation are
+documented under [`docs/bench/`](../../docs/bench/README.md).
 
 ## Teardown & cost warning
 
