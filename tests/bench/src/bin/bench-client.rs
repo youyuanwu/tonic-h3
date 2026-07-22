@@ -1,6 +1,6 @@
 use clap::Parser;
 use tonic_h3_bench::cli::ClientArgs;
-use tonic_h3_bench::{BenchError, client::run_client, init_tracing};
+use tonic_h3_bench::{BenchError, OutputFormat, client::run_client, init_tracing};
 
 #[tokio::main]
 async fn main() -> Result<(), BenchError> {
@@ -16,7 +16,17 @@ async fn main() -> Result<(), BenchError> {
     );
 
     let summary = run_client(&args).await?;
-    println!("{summary}");
+    match args.format {
+        OutputFormat::Text => println!("{summary}"),
+        OutputFormat::Json => {
+            let json = summary.to_json(
+                &args.transport.to_string(),
+                args.payload_size,
+                args.concurrency,
+            );
+            println!("{json}");
+        }
+    }
 
     if summary.success == 0 {
         return Err("no successful requests".into());

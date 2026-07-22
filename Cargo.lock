@@ -3643,6 +3643,7 @@ dependencies = [
  "quinn",
  "rcgen",
  "rustls",
+ "serde_json",
  "tokio",
  "tokio-util",
  "tonic",

@@ -145,6 +145,32 @@ latency p90: 9.472 ms
 latency p99: 15.231 ms
 ```
 
+### Machine-readable output (`--format json`)
+
+For collecting many runs across hosts and VM SKUs, pass `--format json` to emit a
+single-line JSON object instead of the text block (the default remains `text`, so
+existing usage is unchanged):
+
+```bash
+cargo run -p tonic-h3-bench --bin bench-client -- \
+    --transport quinn --addr 127.0.0.1:5000 --count 50000 --format json
+```
+
+```json
+{"transport":"quinn","payload_size":64,"concurrency":16,"count":50000,"ok":50000,"failed":0,"elapsed_s":12.104,"throughput_rps":4131.7,"p50_ms":6.912,"p90_ms":9.472,"p99_ms":15.231}
+```
+
+Latency percentiles are in **milliseconds** and become JSON `null` when no
+requests succeeded; `elapsed_s` is in seconds; `count` is the total number of
+requests attempted (`ok + failed`). The Azure run orchestration (see
+[`../infra`](../infra/README.md) and [`docs/bench/`](../../docs/bench/README.md))
+uses this JSON form so results aggregate cleanly across repeated cross-SKU runs.
+
+Both binaries write **diagnostic logs to stderr** and their result output (the
+text block or the JSON line) to **stdout**, so a consumer can capture a clean
+result with a simple stdout redirect (`> result.json`) while logs stay on
+stderr. Set `RUST_LOG` to adjust log verbosity (default `info`).
+
 ## CLI reference
 
 ### `bench-server`
@@ -167,6 +193,7 @@ latency p99: 15.231 ms
 | `--warmup`          | *(unset)*          | Optional warmup duration in **seconds**; warmup results are discarded. |
 | `--connect-timeout` | `5`                | Connect/preflight timeout in **seconds** (fail fast when the server is unreachable). Also bounds the TCP+TLS connect/handshake. |
 | `--request-timeout` | `30`               | Per-request timeout in **seconds**. A request exceeding it is counted as a failure so runs always terminate even if a backend stalls. |
+| `--format`          | `text`             | Result output format: `text` (human-readable block) or `json` (single-line machine-readable object). |
 
 \* `--count` has no clap-level default value; when **neither** `--count` nor
 `--duration` is supplied, the client falls back to a built-in default of

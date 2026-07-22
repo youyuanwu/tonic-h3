@@ -101,6 +101,35 @@ impl BenchSummary {
             p99_us: p99,
         }
     }
+
+    /// Render this summary as a single machine-readable JSON object, combining
+    /// the run's metrics with the client configuration that produced them.
+    ///
+    /// Latency percentiles are emitted in **milliseconds** (matching the text
+    /// output) and become JSON `null` when there were no successful requests.
+    /// `elapsed_s` is seconds. This shape is stable for cross-run/cross-SKU
+    /// aggregation (see `docs/bench/`).
+    pub fn to_json(
+        &self,
+        transport: &str,
+        payload_size: usize,
+        concurrency: u32,
+    ) -> serde_json::Value {
+        let ms = |v: Option<u64>| v.map(|us| us as f64 / 1000.0);
+        serde_json::json!({
+            "transport": transport,
+            "payload_size": payload_size,
+            "concurrency": concurrency,
+            "count": self.total,
+            "ok": self.success,
+            "failed": self.failure,
+            "elapsed_s": self.elapsed.as_secs_f64(),
+            "throughput_rps": self.throughput_rps,
+            "p50_ms": ms(self.p50_us),
+            "p90_ms": ms(self.p90_us),
+            "p99_ms": ms(self.p99_us),
+        })
+    }
 }
 
 fn fmt_us(v: Option<u64>) -> String {
@@ -177,5 +206,63 @@ mod tests {
         assert_eq!(s.success, 2);
         assert_eq!(s.failure, 1);
         assert_eq!(s.total, 3);
+    }
+
+    #[test]
+    fn json_has_required_schema_and_units() {
+        let mut rec = Recorder::new();
+        for _ in 0..100 {
+            rec.record_success(Duration::from_millis(2));
+        }
+        let s = BenchSummary::from_recorder(&rec, Duration::from_secs(2));
+        let j = s.to_json("quinn", 4096, 32);
+
+        // All required keys are present.
+        for key in [
+            "transport",
+            "payload_size",
+            "concurrency",
+            "count",
+            "ok",
+            "failed",
+            "elapsed_s",
+            "throughput_rps",
+            "p50_ms",
+            "p90_ms",
+            "p99_ms",
+        ] {
+            assert!(j.get(key).is_some(), "missing key {key}");
+        }
+
+        assert_eq!(j["transport"], "quinn");
+        assert_eq!(j["payload_size"], 4096);
+        assert_eq!(j["concurrency"], 32);
+        assert_eq!(j["count"], 100);
+        assert_eq!(j["ok"], 100);
+        assert_eq!(j["failed"], 0);
+        assert_eq!(j["elapsed_s"], 2.0);
+        // 100 successes / 2s = 50 req/s.
+        assert!((j["throughput_rps"].as_f64().unwrap() - 50.0).abs() < 1.0);
+        // ~2ms latency, emitted in milliseconds.
+        let p50 = j["p50_ms"].as_f64().unwrap();
+        assert!((1.9..=2.1).contains(&p50), "p50_ms was {p50}");
+        // Emits one line and round-trips as valid JSON.
+        let line = j.to_string();
+        assert!(!line.contains('\n'));
+        let _: serde_json::Value = serde_json::from_str(&line).unwrap();
+    }
+
+    #[test]
+    fn json_percentiles_null_on_zero_success() {
+        let mut rec = Recorder::new();
+        rec.record_failure();
+        let s = BenchSummary::from_recorder(&rec, Duration::from_secs(1));
+        let j = s.to_json("tcp-tls", 64, 1);
+        assert_eq!(j["ok"], 0);
+        assert_eq!(j["failed"], 1);
+        assert_eq!(j["count"], 1);
+        assert!(j["p50_ms"].is_null());
+        assert!(j["p90_ms"].is_null());
+        assert!(j["p99_ms"].is_null());
     }
 }

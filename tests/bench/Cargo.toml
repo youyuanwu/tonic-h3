@@ -41,6 +41,8 @@ tracing-subscriber = { workspace = true, features = ["env-filter"] }
 http.workspace = true
 clap = { workspace = true, features = ["derive"] }
 hdrhistogram.workspace = true
+# machine-readable (--format json) result output
+serde_json.workspace = true
 
 [build-dependencies]
 tonic-prost-build.workspace = true
