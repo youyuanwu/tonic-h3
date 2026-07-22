@@ -108,7 +108,7 @@
       changed_when: false
       delegate_to: server
 
-    - name: Verify the server process has exited (transport-agnostic)
+    - name: Verify the server exited; SIGKILL as a last resort, then fail if it survives
       ansible.builtin.shell:
         cmd: >-
           pid=$(cat {{ remote_pid }} 2>/dev/null || true);
@@ -117,8 +117,10 @@
             kill -0 "$pid" 2>/dev/null || exit 0;
             sleep 1;
           done;
-          exit 1
+          echo "server pid $pid still alive after SIGTERM+{{ bench_stop_timeout }}s; escalating to SIGKILL" >&2;
+          kill -KILL "$pid" 2>/dev/null || true;
+          sleep 1;
+          kill -0 "$pid" 2>/dev/null && exit 1 || exit 0
         executable: /bin/bash
       changed_when: false
-      failed_when: false
       delegate_to: server
