@@ -161,7 +161,6 @@ fn msquic_server_cred() -> Result<h3_util::msquic::msquic_h3::msquic::Credential
 #[cfg(target_os = "windows")]
 fn msquic_server_cred() -> Result<h3_util::msquic::msquic_h3::msquic::Credential, BenchError> {
     use h3_util::msquic::msquic_h3::msquic::{CertificateHash, Credential};
-    use std::str::FromStr;
 
     fn get_hash() -> Option<String> {
         let cmd = "Get-ChildItem Cert:\\CurrentUser\\My | Where-Object -Property FriendlyName -EQ -Value MsQuic-Test | Select-Object -ExpandProperty Thumbprint -First 1";
