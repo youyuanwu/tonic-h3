@@ -50,6 +50,18 @@ impl std::fmt::Display for Transport {
     }
 }
 
+/// How the `bench-client` renders its result. `Text` (default) prints the
+/// human-readable `=== Benchmark result ===` block; `Json` prints a single
+/// machine-readable JSON object for aggregating runs across SKUs/hosts.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, clap::ValueEnum)]
+pub enum OutputFormat {
+    /// Human-readable text block (unchanged default).
+    #[default]
+    Text,
+    /// Single-line JSON object with run metadata and metrics.
+    Json,
+}
+
 /// The echo service implementation: returns the request payload unchanged.
 #[derive(Default, Clone)]
 pub struct EchoService;
@@ -74,7 +86,7 @@ pub fn echo_routes() -> tonic::service::Routes {
 
 /// CLI argument definitions (kept in the library so they can be unit-tested).
 pub mod cli {
-    use super::Transport;
+    use super::{OutputFormat, Transport};
     use crate::load::{LoadConfig, LoadLimit};
     use clap::Parser;
     use std::time::Duration;
@@ -108,6 +120,11 @@ pub mod cli {
         /// Server address to target (host:port).
         #[arg(long, default_value = DEFAULT_ADDR)]
         pub addr: String,
+
+        /// Output format for the result: `text` (default, human-readable) or
+        /// `json` (single-line machine-readable object).
+        #[arg(long, value_enum, default_value_t = OutputFormat::Text)]
+        pub format: OutputFormat,
 
         /// Echo payload size in bytes.
         #[arg(long, default_value_t = 64)]
@@ -200,6 +217,21 @@ pub mod cli {
                 a.limit(),
                 LoadLimit::Count(ClientArgs::DEFAULT_COUNT)
             ));
+            // Text output is the default so existing behavior is preserved.
+            assert_eq!(a.format, OutputFormat::Text);
+        }
+
+        #[test]
+        fn format_json_parses() {
+            let a = ClientArgs::try_parse_from([
+                "bench-client",
+                "--transport",
+                "quinn",
+                "--format",
+                "json",
+            ])
+            .unwrap();
+            assert_eq!(a.format, OutputFormat::Json);
         }
 
         #[test]
@@ -240,5 +272,11 @@ pub mod cli {
 pub fn init_tracing() {
     use tracing_subscriber::EnvFilter;
     let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
-    let _ = tracing_subscriber::fmt().with_env_filter(filter).try_init();
+    // Diagnostics go to stderr so stdout carries ONLY the result output
+    // (the `=== Benchmark result ===` block or, with `--format json`, a single
+    // JSON line). This lets orchestration capture stdout as a clean artifact.
+    let _ = tracing_subscriber::fmt()
+        .with_env_filter(filter)
+        .with_writer(std::io::stderr)
+        .try_init();
 }

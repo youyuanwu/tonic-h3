@@ -1,0 +1,34 @@
+---
+# Example benchmark scenario matrix for run-bench.yml.
+#
+# Pass this file to override the small built-in default matrix:
+#   ansible-playbook run-bench.yml -e @scenarios.yml -e topology=... -e vm_size=...
+#
+# Each scenario is a dict:
+#   transport     : tcp-tls | quinn | msquic | s2n-quic | quiche
+#   payload_size  : echo payload in bytes
+#   concurrency   : in-flight workers (quiche is auto-forced to 1)
+#   count | duration : request budget (fixed count) OR wall-clock seconds (exactly one)
+#   port          : (optional) data-plane port override; defaults to bench_port
+#
+# See docs/bench/scenario-matrix.md for the design rationale.
+scenarios:
+  # --- Baseline vs production QUIC, small payload, concurrency sweep ---
+  - { transport: tcp-tls, payload_size: 64,    concurrency: 1,   count: 20000 }
+  - { transport: tcp-tls, payload_size: 64,    concurrency: 32,  count: 50000 }
+  - { transport: quinn,   payload_size: 64,    concurrency: 1,   count: 20000 }
+  - { transport: quinn,   payload_size: 64,    concurrency: 32,  count: 50000 }
+
+  # --- Payload-size sweep on the production backends ---
+  - { transport: tcp-tls, payload_size: 4096,  concurrency: 32,  count: 50000 }
+  - { transport: quinn,   payload_size: 4096,  concurrency: 32,  count: 50000 }
+  - { transport: quinn,   payload_size: 65536, concurrency: 32,  count: 20000 }
+
+  # --- Experimental backends (evaluation only) ---
+  - { transport: msquic,   payload_size: 64,   concurrency: 16,  count: 20000 }
+  - { transport: s2n-quic, payload_size: 64,   concurrency: 16,  count: 20000 }
+  # quiche: concurrency is forced to 1 by the playbook regardless of this value.
+  - { transport: quiche,   payload_size: 64,   concurrency: 1,   count: 10000 }
+
+  # --- Duration-based steady-state sample (demonstrates the duration budget) ---
+  - { transport: quinn,   payload_size: 64,    concurrency: 32,  duration: 30 }

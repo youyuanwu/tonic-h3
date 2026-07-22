@@ -1,0 +1,147 @@
+---
+# Run the gRPC echo benchmark matrix between the two VMs over the PRIVATE
+# network and collect the results back to a git-ignored local directory.
+#
+# For each scenario (a dict of transport/payload_size/concurrency and either
+# count or duration) this playbook, using a block/rescue/always lifecycle:
+#   1. starts `bench-server` on the SERVER host (bound to its private IP),
+#      backgrounded, with stdout+stderr captured to a per-scenario log and its
+#      PID recorded to a pidfile;
+#   2. waits until the server prints "listening on" (works for BOTH the TCP
+#      baseline and the UDP/QUIC transports, unlike a TCP port probe);
+#   3. writes a metadata sidecar and runs `bench-client --format json` on the
+#      CLIENT host targeting the server's private IP, capturing the JSON result;
+#   4. always fetches the result + metadata to the local results dir and always
+#      stops the server with SIGTERM (graceful QUIC teardown frees the port),
+#      verifying the process actually exited.
+#
+# The play targets `hosts: client` (a single coordinating host) and delegates
+# server-side tasks to the `server` host via delegate_to, reading the peer's
+# private IP / VM name from inventory hostvars. This avoids run_once coordination
+# subtleties while still orchestrating both nodes.
+#
+# quiche is forced to --concurrency 1 (it stalls under higher concurrency); the
+# effective concurrency is what lands in the result filename and metadata.
+#
+# Usage (run from tests/infra/ansible/ so ansible.cfg is active):
+#   python3 inventory.py --topology same-zone
+#   ansible-playbook run-bench.yml -e topology=same-zone -e vm_size=Standard_D2s_v5 -e region=eastus2
+#   # override the scenario matrix from a file:
+#   ansible-playbook run-bench.yml -e @scenarios.yml -e topology=cross-zone ...
+#
+# Local (no-Azure) validation, see docs/bench/run-procedure.md:
+#   cargo build --release -p tonic-h3-bench
+#   ansible-playbook -i inventory.local.ini run-bench.yml \
+#     -e bench_dest_dir="{{ playbook_dir }}/../../../target/release" \
+#     -e bench_results_dir_remote=/tmp/bench-dryrun \
+#     -e '{"scenarios":[{"transport":"quinn","payload_size":64,"concurrency":1,"count":20,"port":5051}]}'
+- name: Run the gRPC echo benchmark matrix and collect results
+  hosts: client
+  gather_facts: false
+  vars:
+    # Directory on the VMs holding the deployed binaries (from deploy-bench.yml).
+    bench_dest_dir: "~/bench"
+    # Default data-plane port (a scenario may override with its own `port`).
+    bench_port: 5000
+    # Where result/log/pid files live on the VMs (relative -> remote $HOME).
+    bench_results_dir_remote: "bench-results"
+    # Local (control-node) directory results are fetched into. Git-ignored.
+    bench_results_dir_local: "./results"
+    # Run-provenance metadata. Supplied via -e for real runs; `unknown` otherwise.
+    topology: unknown
+    vm_size: unknown
+    region: unknown
+    # How long to wait for server readiness / shutdown (seconds).
+    bench_ready_timeout: 30
+    bench_stop_timeout: 20
+    # libmsquic version deployed on the VMs (recorded in each metadata sidecar
+    # for reproducibility). Pass the same value used with deploy-bench.yml.
+    bench_libmsquic_version: unknown
+    # Fail the whole play (after cleanup) if any scenario failed. Set to false
+    # to collect a best-effort matrix without a non-zero exit.
+    bench_fail_on_scenario_error: true
+    # Allowed transports (used by the preflight validation below).
+    bench_valid_transports: [tcp-tls, quinn, msquic, s2n-quic, quiche]
+    # Default, deliberately small, matrix. Override with -e @scenarios.yml.
+    scenarios:
+      - { transport: tcp-tls,  payload_size: 64,   concurrency: 16, count: 20000 }
+      - { transport: quinn,    payload_size: 64,   concurrency: 16, count: 20000 }
+      - { transport: quinn,    payload_size: 4096, concurrency: 32, count: 20000 }
+      - { transport: msquic,   payload_size: 64,   concurrency: 16, count: 10000 }
+      - { transport: s2n-quic, payload_size: 64,   concurrency: 16, count: 10000 }
+      - { transport: quiche,   payload_size: 64,   concurrency: 1,  count: 5000 }
+  tasks:
+    - name: Validate the scenario matrix before starting anything
+      # Fail fast and precisely on malformed extra-vars rather than silently
+      # reinterpreting them or turning bad input into a mid-run scenario failure.
+      ansible.builtin.assert:
+        that:
+          - item.transport is defined
+          - item.transport in bench_valid_transports
+          - item.payload_size is defined and (item.payload_size | int) >= 0
+          - item.concurrency is defined and (item.concurrency | int) >= 1
+          - (item.count is defined) != (item.duration is defined)
+          - (item.count is not defined) or ((item.count | int) > 0)
+          - (item.duration is not defined) or ((item.duration | int) > 0)
+        quiet: true
+        fail_msg: >-
+          Invalid scenario {{ item }}: need a known transport, payload_size >= 0,
+          concurrency >= 1, and EXACTLY ONE positive count or duration.
+      loop: "{{ scenarios }}"
+      loop_control:
+        label: "{{ item.transport | default('?') }} p{{ item.payload_size | default('?') }}"
+
+    - name: Compute run identifiers (timestamp, run id, git commit)
+      ansible.builtin.set_fact:
+        run_ts: "{{ lookup('pipe', 'date -u +%Y%m%dT%H%M%SZ') }}"
+        run_id: "{{ lookup('pipe', 'python3 -c \"import secrets; print(secrets.token_hex(8))\"') }}"
+        git_commit: "{{ lookup('pipe', 'git rev-parse HEAD 2>/dev/null || echo unknown') }}"
+
+    - name: Ensure the local results directory exists (control node)
+      ansible.builtin.file:
+        path: "{{ bench_results_dir_local }}"
+        state: directory
+        mode: "0755"
+      delegate_to: localhost
+
+    - name: Ensure the remote results directory exists on the client
+      ansible.builtin.file:
+        path: "{{ bench_results_dir_remote }}"
+        state: directory
+        mode: "0755"
+
+    - name: Ensure the remote results directory exists on the server
+      ansible.builtin.file:
+        path: "{{ bench_results_dir_remote }}"
+        state: directory
+        mode: "0755"
+      delegate_to: server
+
+    - name: Run each benchmark scenario
+      ansible.builtin.include_tasks: tasks/run-scenario.yml
+      loop: "{{ scenarios }}"
+      loop_control:
+        loop_var: scenario
+        index_var: scenario_index
+        label: "{{ scenario.transport }} p{{ scenario.payload_size }} c{{ scenario.concurrency }}"
+
+    - name: Report where results were collected
+      ansible.builtin.debug:
+        msg: >-
+          Ran {{ scenarios | length }} scenario(s),
+          {{ (failed_scenarios | default([])) | length }} failed; results fetched
+          to {{ bench_results_dir_local }} (run_id={{ run_id }}, run_ts={{ run_ts }}).
+          {% if failed_scenarios | default([]) | length > 0 %}Failed: {{ failed_scenarios | join(', ') }}{% endif %}
+
+    - name: Fail the play if any scenario failed (after cleanup)
+      # Every server was already stopped in each scenario's `always` block, so
+      # failing here does not leak processes/ports. Opt out with
+      # -e bench_fail_on_scenario_error=false for best-effort collection.
+      ansible.builtin.fail:
+        msg: >-
+          {{ (failed_scenarios | default([])) | length }} of {{ scenarios | length }}
+          scenario(s) failed: {{ failed_scenarios | join(', ') }}. See the fetched
+          *.client.log / *.server.log in {{ bench_results_dir_local }}.
+      when:
+        - bench_fail_on_scenario_error | bool
+        - (failed_scenarios | default([])) | length > 0

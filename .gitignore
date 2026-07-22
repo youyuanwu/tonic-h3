@@ -5,3 +5,5 @@ bin
 !tests/bench/src/bin/
 .vscode
 codecov.json
+# Fetched benchmark run artifacts (see tests/infra/ansible/run-bench.yml, docs/bench/).
+tests/infra/ansible/results/

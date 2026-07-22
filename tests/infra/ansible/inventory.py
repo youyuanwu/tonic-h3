@@ -11,6 +11,8 @@ reads their PRIVATE and management PUBLIC IPs, and writes an INI inventory with 
   * private_ip    - the VM's private IP (the peer-connectivity target).
   * peer          - the name of the other host, so a playbook can look up
                     `hostvars[peer].private_ip` and ping across the private link.
+  * vm_name       - the underlying Azure VM name (e.g. `tonich3-server-l3nbfj`),
+                    so a playbook can record the real VM identity in run metadata.
 
 No third-party Python packages are required (stdlib + the `az` CLI only).
 
@@ -131,7 +133,8 @@ def build_inventory(
             sys.exit(1)
         lines.append(
             f"{role} ansible_host={connect_ip} "
-            f"private_ip={node['private_ip']} peer={peer_of[role]}"
+            f"private_ip={node['private_ip']} peer={peer_of[role]} "
+            f"vm_name={node['name']}"
         )
 
     lines += [

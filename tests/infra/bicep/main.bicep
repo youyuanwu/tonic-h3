@@ -42,6 +42,15 @@ param nameSuffix string = ''
 @description('VM size. Must support Accelerated Networking (D/Ds v5-class recommended).')
 param vmSize string = 'Standard_D2s_v5'
 
+@description('Marketplace image publisher.')
+param imagePublisher string = 'Canonical'
+
+@description('Marketplace image offer. Default Ubuntu 26.04 LTS (Gen2) so the VMs\' glibc matches the build host and prebuilt bench binaries run without a glibc-version error.')
+param imageOffer string = 'ubuntu-26_04-lts'
+
+@description('Marketplace image SKU. "server" is the Gen2 x64 image for the ubuntu-26_04-lts offer.')
+param imageSku string = 'server'
+
 @description('Admin username for the Linux VMs.')
 param adminUsername string = 'azureuser'
 
@@ -190,6 +199,9 @@ module clientVm 'modules/vm.bicep' = {
     zone: clientZone
     subnetId: networkPrimary.outputs.subnetId
     vmSize: vmSize
+    imagePublisher: imagePublisher
+    imageOffer: imageOffer
+    imageSku: imageSku
     adminUsername: adminUsername
     sshPublicKey: sshPublicKey
     ppgId: ppgId
@@ -209,6 +221,9 @@ module serverVm 'modules/vm.bicep' = {
     zone: serverZone
     subnetId: serverSubnetId
     vmSize: vmSize
+    imagePublisher: imagePublisher
+    imageOffer: imageOffer
+    imageSku: imageSku
     adminUsername: adminUsername
     sshPublicKey: sshPublicKey
     ppgId: ppgId
