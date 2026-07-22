@@ -107,9 +107,9 @@
           {{ result_base }}.server.log for the cause.
 
   always:
-    - name: Fetch all scenario artifacts to the local results directory
-      # Result + metadata + client stderr + server log, so a failed scenario
-      # still leaves a durable, self-explanatory record locally.
+    - name: Fetch the client-side scenario artifacts to the local results directory
+      # Result + metadata + client stderr live on the CLIENT host, so a failed
+      # scenario still leaves a durable, self-explanatory record locally.
       ansible.builtin.fetch:
         src: "{{ item }}"
         dest: "{{ bench_results_dir_local }}/"
@@ -118,8 +118,18 @@
         - "{{ remote_result }}"
         - "{{ remote_meta }}"
         - "{{ remote_client_err }}"
-        - "{{ remote_log }}"
       delegate_to: client
+      ignore_errors: true
+
+    - name: Fetch the server log to the local results directory
+      # The server log lives on the SERVER host (the server and client are
+      # different VMs for every real topology), so it must be fetched from
+      # `server` rather than `client`.
+      ansible.builtin.fetch:
+        src: "{{ remote_log }}"
+        dest: "{{ bench_results_dir_local }}/"
+        flat: true
+      delegate_to: server
       ignore_errors: true
 
     - name: Stop the bench-server (SIGTERM -> graceful teardown, frees the port)
