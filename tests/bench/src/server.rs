@@ -9,7 +9,7 @@ use std::future::Future;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use crate::{BenchError, Transport, echo_routes, tls};
+use crate::{BenchError, EchoService, Transport, echo_routes, echo_server, tls};
 
 /// Serve the echo service over `transport`, bound to `addr`, until `shutdown`.
 pub async fn run_server<F>(
@@ -21,6 +21,7 @@ where
     F: Future<Output = ()> + Send + 'static,
 {
     match transport {
+        Transport::TcpTls => run_tcp_tls(addr, shutdown).await,
         Transport::Quinn => run_quinn(addr, shutdown).await,
         other => Err(format!(
             "server transport `{other}` is not implemented yet (added in a later phase)"
@@ -50,6 +51,28 @@ where
 
     endpoint.close(0u16.into(), b"server shutdown");
     endpoint.wait_idle().await;
+    Ok(())
+}
+
+/// TCP + TLS (HTTP/2) baseline server via `tonic-tls`.
+async fn run_tcp_tls<F>(addr: SocketAddr, shutdown: F) -> Result<(), BenchError>
+where
+    F: Future<Output = ()> + Send + 'static,
+{
+    use tonic::transport::server::TcpIncoming;
+    use tonic_tls::rustls::TlsIncoming;
+
+    // gRPC over TCP negotiates HTTP/2 via ALPN "h2" (not "h3").
+    let server_config = Arc::new(tls::make_server_config(&[b"h2"]));
+    let tcp = TcpIncoming::bind(addr)?;
+    let local = tcp.local_addr()?;
+    announce(Transport::TcpTls, local);
+
+    let incoming = TlsIncoming::new(tcp, server_config);
+    tonic::transport::Server::builder()
+        .add_service(echo_server::EchoServer::new(EchoService))
+        .serve_with_incoming_shutdown(incoming, shutdown)
+        .await?;
     Ok(())
 }
 

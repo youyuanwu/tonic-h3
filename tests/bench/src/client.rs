@@ -19,6 +19,12 @@ pub async fn run_client(args: &ClientArgs) -> Result<BenchSummary, BenchError> {
     let cfg = args.load_config();
 
     match args.transport {
+        Transport::TcpTls => {
+            let channel = connect_tcp_tls(&args.addr).await?;
+            let client = EchoClient::new(channel);
+            let summary = drive_load(client, cfg).await?;
+            Ok(summary)
+        }
         Transport::Quinn => {
             let endpoint = make_quinn_client_endpoint()?;
             let connector = tonic_h3::quinn::H3QuinnConnector::new(
@@ -49,4 +55,23 @@ fn make_quinn_client_endpoint() -> Result<quinn::Endpoint, BenchError> {
     let client_config = quinn::ClientConfig::new(Arc::new(QuicClientConfig::try_from(tls_config)?));
     endpoint.set_default_client_config(client_config);
     Ok(endpoint)
+}
+
+/// Build a tonic `Channel` over TCP+TLS (HTTP/2, ALPN "h2") via `tonic-tls`.
+async fn connect_tcp_tls(addr: &str) -> Result<tonic::transport::Channel, BenchError> {
+    use rustls::pki_types::ServerName;
+    use tonic::transport::Endpoint;
+
+    let endpoint = Endpoint::from_shared(format!("https://{addr}"))?;
+    let dnsname = ServerName::try_from("localhost")?.to_owned();
+    let client_config = Arc::new(tls::make_danger_client_config(&[b"h2"]));
+    let transport = tonic_tls::TcpTransport::from_endpoint(&endpoint);
+    let channel = endpoint
+        .connect_with_connector(tonic_tls::rustls::TlsConnector::new(
+            transport,
+            client_config,
+            dnsname,
+        ))
+        .await?;
+    Ok(channel)
 }
