@@ -72,3 +72,11 @@ progression.
 - [Result showcase template](results-template.md)
 - [Benchmark binaries reference](../../tests/bench/README.md)
 - [Azure infrastructure reference](../../tests/infra/README.md)
+
+## Published results
+
+Curated result sets (raw artifacts stay git-ignored; only these tables are committed):
+
+- [same-zone · `Standard_D2s_v5` · 2026-07-23](results/results-same-zone-d2s_v5-20260723.md)
+- [cross-zone · `Standard_D2s_v5` · 2026-07-23](results/results-cross-zone-d2s_v5-20260723.md)
+- [cross-region · `Standard_D2s_v5` · 2026-07-23](results/results-cross-region-d2s_v5-20260723.md)

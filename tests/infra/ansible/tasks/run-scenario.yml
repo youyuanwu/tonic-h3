@@ -16,6 +16,12 @@
     # Exactly one of count/duration is present per scenario (validated upfront).
     budget_args: "{{ ('--count ' ~ scenario.count) if scenario.count is defined else ('--duration ' ~ scenario.duration) }}"
     budget_label: "{{ ('n' ~ scenario.count) if scenario.count is defined else ('d' ~ scenario.duration ~ 's') }}"
+    # Warmup seconds (results discarded): an explicit per-scenario `warmup`
+    # override wins; otherwise duration-based throughput runs get the default
+    # warmup and count-based latency runs get none (every request is measured).
+    # Applied identically to every transport, so comparisons stay apples-to-apples.
+    warmup: "{{ scenario.warmup if scenario.warmup is defined else (bench_warmup_default if scenario.duration is defined else 0) }}"
+    warmup_args: "{{ ('--warmup ' ~ (warmup | int)) if (warmup | int) > 0 else '' }}"
     # Server private IP (loopback 127.0.0.1 in the local dry-run inventory).
     server_ip: "{{ hostvars['server'].private_ip }}"
     # A zero-padded scenario index guarantees uniqueness within one invocation;
@@ -45,6 +51,7 @@
           concurrency: "{{ eff_conc | int }}"
           requested_concurrency: "{{ scenario.concurrency }}"
           budget: "{{ ('count=' ~ scenario.count) if scenario.count is defined else ('duration=' ~ scenario.duration ~ 's') }}"
+          warmup: "{{ warmup | int }}"
           port: "{{ port | int }}"
           libmsquic_version: "{{ bench_libmsquic_version | default('unknown') }}"
           git_commit: "{{ git_commit }}"
@@ -85,6 +92,7 @@
           --payload-size {{ scenario.payload_size }}
           --concurrency {{ eff_conc }}
           {{ budget_args }}
+          {{ warmup_args }}
           --format json
           > {{ remote_result }} 2> {{ remote_client_err }}
         executable: /bin/bash

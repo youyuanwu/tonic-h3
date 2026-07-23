@@ -1,34 +1,79 @@
 ---
-# Example benchmark scenario matrix for run-bench.yml.
+# Apples-to-apples benchmark comparison matrix for run-bench.yml.
+#
+# Every comparable transport runs the EXACT same set of workload points so the
+# results are directly comparable transport-by-transport. Five workload points
+# (a latency probe, two concurrency levels at the small RPC payload, plus a
+# medium and a large payload throughput point) are applied identically to each
+# of the four comparable transports:
+#
+#   tcp-tls  - tonic + tonic-tls over TCP/TLS (HTTP/2). The non-QUIC baseline.
+#   quinn    - tonic-h3 over QUIC (the production-supported backend).
+#   msquic   - tonic-h3 over QUIC (experimental backend).
+#   s2n-quic - tonic-h3 over QUIC (experimental backend).
+#
+# quiche is intentionally EXCLUDED: it stalls above concurrency 1, so it cannot
+# run the shared concurrency>=32 points and would not be an apples-to-apples
+# comparison. Evaluate it separately with a concurrency-1 matrix if needed.
+#
+# Budget choice: throughput points use a fixed wall-clock `duration` (steady
+# state, identical measurement window for every transport); the latency point
+# uses a fixed `count` so per-request latency percentiles are measured over the
+# same number of samples for every transport.
+#
+# Warmup: duration-based scenarios get a default warmup (bench_warmup_default,
+# 3s; results discarded) applied identically to every transport, so cold-start
+# handshake/ramp effects are excluded from the measured window. Count-based
+# latency scenarios get no warmup by default. Override per scenario with a
+# `warmup` field (seconds), or globally with -e bench_warmup_default=<n>.
 #
 # Pass this file to override the small built-in default matrix:
-#   ansible-playbook run-bench.yml -e @scenarios.yml -e topology=... -e vm_size=...
+#   ansible-playbook run-bench.yml -e @scenarios.yml \
+#     -e topology=same-zone -e vm_size=Standard_D2s_v5 -e region=eastus2 \
+#     -e bench_port=50051 -e bench_libmsquic_version=2.5.8
 #
 # Each scenario is a dict:
-#   transport     : tcp-tls | quinn | msquic | s2n-quic | quiche
+#   transport     : tcp-tls | quinn | msquic | s2n-quic
 #   payload_size  : echo payload in bytes
-#   concurrency   : in-flight workers (quiche is auto-forced to 1)
-#   count | duration : request budget (fixed count) OR wall-clock seconds (exactly one)
+#   concurrency   : in-flight workers
+#   count | duration : request budget (fixed count) OR wall-clock seconds (one)
+#   warmup        : (optional) warmup seconds, results discarded; defaults to
+#                   bench_warmup_default (3s) for duration runs, 0 for count runs
 #   port          : (optional) data-plane port override; defaults to bench_port
 #
 # See docs/bench/scenario-matrix.md for the design rationale.
 scenarios:
-  # --- Baseline vs production QUIC, small payload, concurrency sweep ---
-  - { transport: tcp-tls, payload_size: 64,    concurrency: 1,   count: 20000 }
-  - { transport: tcp-tls, payload_size: 64,    concurrency: 32,  count: 50000 }
-  - { transport: quinn,   payload_size: 64,    concurrency: 1,   count: 20000 }
-  - { transport: quinn,   payload_size: 64,    concurrency: 32,  count: 50000 }
+  # === Point 1: latency probe - small payload, single in-flight request ======
+  # Serialized round-trips; isolates per-request latency (no queuing).
+  - { transport: tcp-tls,  payload_size: 64,    concurrency: 1,   count: 20000 }
+  - { transport: quinn,    payload_size: 64,    concurrency: 1,   count: 20000 }
+  - { transport: msquic,   payload_size: 64,    concurrency: 1,   count: 20000 }
+  - { transport: s2n-quic, payload_size: 64,    concurrency: 1,   count: 20000 }
 
-  # --- Payload-size sweep on the production backends ---
-  - { transport: tcp-tls, payload_size: 4096,  concurrency: 32,  count: 50000 }
-  - { transport: quinn,   payload_size: 4096,  concurrency: 32,  count: 50000 }
-  - { transport: quinn,   payload_size: 65536, concurrency: 32,  count: 20000 }
+  # === Point 2: throughput - small payload, moderate concurrency (c=32) ======
+  # The primary small-RPC throughput comparison point.
+  - { transport: tcp-tls,  payload_size: 64,    concurrency: 32,  duration: 15 }
+  - { transport: quinn,    payload_size: 64,    concurrency: 32,  duration: 15 }
+  - { transport: msquic,   payload_size: 64,    concurrency: 32,  duration: 15 }
+  - { transport: s2n-quic, payload_size: 64,    concurrency: 32,  duration: 15 }
 
-  # --- Experimental backends (evaluation only) ---
-  - { transport: msquic,   payload_size: 64,   concurrency: 16,  count: 20000 }
-  - { transport: s2n-quic, payload_size: 64,   concurrency: 16,  count: 20000 }
-  # quiche: concurrency is forced to 1 by the playbook regardless of this value.
-  - { transport: quiche,   payload_size: 64,   concurrency: 1,   count: 10000 }
+  # === Point 3: throughput - small payload, high concurrency (c=128) =========
+  # Stresses stream multiplexing / scheduling under heavier in-flight load.
+  - { transport: tcp-tls,  payload_size: 64,    concurrency: 128, duration: 15 }
+  - { transport: quinn,    payload_size: 64,    concurrency: 128, duration: 15 }
+  - { transport: msquic,   payload_size: 64,    concurrency: 128, duration: 15 }
+  - { transport: s2n-quic, payload_size: 64,    concurrency: 128, duration: 15 }
 
-  # --- Duration-based steady-state sample (demonstrates the duration budget) ---
-  - { transport: quinn,   payload_size: 64,    concurrency: 32,  duration: 30 }
+  # === Point 4: throughput - medium payload (4 KiB), moderate concurrency ====
+  # Representative message size; balances framing overhead vs. bandwidth.
+  - { transport: tcp-tls,  payload_size: 4096,  concurrency: 32,  duration: 15 }
+  - { transport: quinn,    payload_size: 4096,  concurrency: 32,  duration: 15 }
+  - { transport: msquic,   payload_size: 4096,  concurrency: 32,  duration: 15 }
+  - { transport: s2n-quic, payload_size: 4096,  concurrency: 32,  duration: 15 }
+
+  # === Point 5: throughput - large payload (64 KiB), moderate concurrency ====
+  # Bandwidth-bound regime; surfaces per-transport copy/flow-control overhead.
+  - { transport: tcp-tls,  payload_size: 65536, concurrency: 32,  duration: 15 }
+  - { transport: quinn,    payload_size: 65536, concurrency: 32,  duration: 15 }
+  - { transport: msquic,   payload_size: 65536, concurrency: 32,  duration: 15 }
+  - { transport: s2n-quic, payload_size: 65536, concurrency: 32,  duration: 15 }
