@@ -54,6 +54,10 @@
     # How long to wait for server readiness / shutdown (seconds).
     bench_ready_timeout: 30
     bench_stop_timeout: 20
+    # Default warmup (seconds, results discarded) applied to duration-based
+    # throughput scenarios; count-based latency scenarios get none unless a
+    # scenario sets its own `warmup`. Set to 0 to disable warmup by default.
+    bench_warmup_default: 3
     # libmsquic version deployed on the VMs (recorded in each metadata sidecar
     # for reproducibility). Pass the same value used with deploy-bench.yml.
     bench_libmsquic_version: unknown
@@ -83,6 +87,7 @@
           - (item.count is defined) != (item.duration is defined)
           - (item.count is not defined) or ((item.count | int) > 0)
           - (item.duration is not defined) or ((item.duration | int) > 0)
+          - (item.warmup is not defined) or ((item.warmup | int) >= 0)
         quiet: true
         fail_msg: >-
           Invalid scenario {{ item }}: need a known transport, payload_size >= 0,
