@@ -20,9 +20,6 @@
 # private IP / VM name from inventory hostvars. This avoids run_once coordination
 # subtleties while still orchestrating both nodes.
 #
-# quiche is forced to --concurrency 1 (it stalls under higher concurrency); the
-# effective concurrency is what lands in the result filename and metadata.
-#
 # Usage (run from tests/infra/ansible/ so ansible.cfg is active):
 #   python3 inventory.py --topology same-zone
 #   ansible-playbook run-bench.yml -e topology=same-zone -e vm_size=Standard_D2s_v5 -e region=eastus2
@@ -73,7 +70,7 @@
       - { transport: quinn,    payload_size: 4096, concurrency: 32, count: 20000 }
       - { transport: msquic,   payload_size: 64,   concurrency: 16, count: 10000 }
       - { transport: s2n-quic, payload_size: 64,   concurrency: 16, count: 10000 }
-      - { transport: quiche,   payload_size: 64,   concurrency: 1,  count: 5000 }
+      - { transport: quiche,   payload_size: 64,   concurrency: 16, count: 10000 }
   tasks:
     - name: Validate the scenario matrix before starting anything
       # Fail fast and precisely on malformed extra-vars rather than silently

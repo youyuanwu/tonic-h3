@@ -10,8 +10,6 @@
 # invocation never collide), the play vars, and run_ts/run_id/git_commit.
 - name: "Scenario #{{ scenario_index }} {{ scenario.transport }} p{{ scenario.payload_size }} c{{ scenario.concurrency }}"
   vars:
-    # quiche stalls above concurrency 1 (see tests/bench/README.md); force it.
-    eff_conc: "{{ 1 if scenario.transport == 'quiche' else scenario.concurrency }}"
     port: "{{ scenario.port | default(bench_port) }}"
     # Exactly one of count/duration is present per scenario (validated upfront).
     budget_args: "{{ ('--count ' ~ scenario.count) if scenario.count is defined else ('--duration ' ~ scenario.duration) }}"
@@ -26,7 +24,7 @@
     server_ip: "{{ hostvars['server'].private_ip }}"
     # A zero-padded scenario index guarantees uniqueness within one invocation;
     # run_ts + run_id keep runs unique across invocations/machines/SKUs.
-    result_base: "result-{{ topology }}-{{ vm_size }}-{{ scenario.transport }}-p{{ scenario.payload_size }}-c{{ eff_conc }}-{{ budget_label }}-{{ run_ts }}-{{ run_id }}-s{{ '%03d' % (scenario_index | int) }}"
+    result_base: "result-{{ topology }}-{{ vm_size }}-{{ scenario.transport }}-p{{ scenario.payload_size }}-c{{ scenario.concurrency }}-{{ budget_label }}-{{ run_ts }}-{{ run_id }}-s{{ '%03d' % (scenario_index | int) }}"
     remote_result: "{{ bench_results_dir_remote }}/{{ result_base }}.json"
     remote_meta: "{{ bench_results_dir_remote }}/{{ result_base }}.meta.json"
     remote_log: "{{ bench_results_dir_remote }}/{{ result_base }}.server.log"
@@ -48,8 +46,7 @@
           region: "{{ region }}"
           transport: "{{ scenario.transport }}"
           payload_size: "{{ scenario.payload_size }}"
-          concurrency: "{{ eff_conc | int }}"
-          requested_concurrency: "{{ scenario.concurrency }}"
+          concurrency: "{{ scenario.concurrency | int }}"
           budget: "{{ ('count=' ~ scenario.count) if scenario.count is defined else ('duration=' ~ scenario.duration ~ 's') }}"
           warmup: "{{ warmup | int }}"
           port: "{{ port | int }}"
@@ -90,7 +87,7 @@
           --transport {{ scenario.transport }}
           --addr {{ server_ip }}:{{ port }}
           --payload-size {{ scenario.payload_size }}
-          --concurrency {{ eff_conc }}
+          --concurrency {{ scenario.concurrency }}
           {{ budget_args }}
           {{ warmup_args }}
           --format json
@@ -110,7 +107,7 @@
       ansible.builtin.debug:
         msg: >-
           Scenario #{{ scenario_index }} {{ scenario.transport }}
-          p{{ scenario.payload_size }} c{{ eff_conc }} FAILED; the result may be
+          p{{ scenario.payload_size }} c{{ scenario.concurrency }} FAILED; the result may be
           empty. See the fetched {{ result_base }}.client.log /
           {{ result_base }}.server.log for the cause.
 

@@ -1,7 +1,7 @@
 # Results — cross-zone, `Standard_D2s_v5` (2026-07-23)
 
 Curated results from the apples-to-apples comparison matrix
-([`scenarios.yml`](../../../tests/infra/ansible/scenarios.yml)): every comparable
+([`scenarios.yml`](../../../../tests/infra/ansible/scenarios.yml)): every comparable
 transport runs the exact same workload points. Raw run artifacts live in the
 git-ignored `tests/infra/ansible/results/` and are **not** committed; only these
 curated tables are.

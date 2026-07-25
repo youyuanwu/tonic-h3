@@ -23,9 +23,6 @@ tables here — never the raw run artifacts (they are git-ignored).
 - **Always check `failed` and `ok`.** A high throughput number with non-zero
   `failed` (or `ok` far below the requested `count`) is not a valid data point —
   investigate before recording it.
-- **quiche is single-stream only** (`concurrency` forced to 1). Do **not** place
-  its throughput next to a concurrent `quinn`/`tcp-tls` number as if comparable;
-  compare it only against other `concurrency 1` runs, and annotate it.
 
 ---
 
@@ -51,12 +48,9 @@ you care about. State the fixed axes in the caption.
 | `s2n-quic` | same-zone    |                    |          |          |          |        |
 | `s2n-quic` | cross-zone   |                    |          |          |          |        |
 | `s2n-quic` | cross-region |                    |          |          |          |        |
-| `quiche`¹  | same-zone    |                    |          |          |          |        |
-| `quiche`¹  | cross-zone   |                    |          |          |          |        |
-| `quiche`¹  | cross-region |                    |          |          |          |        |
-
-¹ `quiche` is single-stream (`concurrency 1`); not directly comparable to the
-concurrent rows above.
+| `quiche`   | same-zone    |                    |          |          |          |        |
+| `quiche`   | cross-zone   |                    |          |          |          |        |
+| `quiche`   | cross-region |                    |          |          |          |        |
 
 ---
 
@@ -104,9 +98,8 @@ For each published sweep, add a short write-up alongside the tables:
   baseline on throughput and on tail latency.
 - **Where QUIC wins / loses:** call out the topology (RTT) and payload regimes
   where HTTP/3 helps vs where the TCP baseline is still ahead.
-- **Caveats:** experimental-backend quirks, the `quiche` single-stream
-  restriction, any non-zero `failed` counts, and NIC/CPU saturation if the SKU
-  looked like the bottleneck.
+- **Caveats:** experimental-backend quirks, any non-zero `failed` counts, and
+  NIC/CPU saturation if the SKU looked like the bottleneck.
 
 ## Reproducing a published number
 

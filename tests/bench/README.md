@@ -36,9 +36,9 @@ The same echo RPC runs over five transports, selected with `--transport`:
 > `s2n-quic`, and `quiche` are **experimental** and provided for evaluation
 > only, matching the support matrix in the [root README](../../README.md).
 >
-> **Known experimental-backend caveat:** the `quiche` client can stall under
-> high concurrency. Benchmark it with `--concurrency 1` for stable results
-> (see [Interpreting results](#interpreting-results)).
+> **Note:** the `quiche` client previously stalled under high concurrency; this
+> was fixed in `quiche-h3` 0.0.3, so `quiche` now runs at any concurrency like
+> the other transports.
 
 The `tcp-tls` transport negotiates **HTTP/2** (ALPN `h2`); the four QUIC
 transports negotiate **HTTP/3** (ALPN `h3`). This lets you compare gRPC over
@@ -124,13 +124,13 @@ cargo run -p tonic-h3-bench --bin bench-client -- --transport s2n-quic --addr 12
     --count 20000 --concurrency 16
 ```
 
-**HTTP/3 over quiche (experimental)** — prefer `--concurrency 1` (see the
-[caveat](#transports-compared)):
+**HTTP/3 over quiche (experimental)** — runs at any concurrency (the old
+high-concurrency stall was fixed in `quiche-h3` 0.0.3):
 
 ```bash
 cargo run -p tonic-h3-bench --bin bench-server -- --transport quiche --addr 127.0.0.1:5000
 cargo run -p tonic-h3-bench --bin bench-client -- --transport quiche --addr 127.0.0.1:5000 \
-    --count 20000 --concurrency 1
+    --count 20000 --concurrency 16
 ```
 
 The server runs until it receives **Ctrl-C** (SIGINT) or **SIGTERM**, then runs
@@ -253,9 +253,8 @@ Each client run has three stages:
   measures round-trip latency; many workers measure pipeline throughput.
 - **Watch the `failed` count and `elapsed`.** A non-zero `failed` count or an
   `elapsed` far larger than the latency percentiles imply indicates instability
-  rather than throughput — e.g. the `quiche` backend stalls under high
-  concurrency, producing a few failures and a long tail. Re-run experimental
-  backends at `--concurrency 1` to confirm.
+  rather than throughput. If a run shows this, re-run it and check for a stalled
+  or saturated backend.
 - **Percentiles over averages.** p99 exposes tail latency (queueing, retransmit,
   GC pauses) that a mean would hide; it is usually the most decision-relevant
   number for RPC systems.

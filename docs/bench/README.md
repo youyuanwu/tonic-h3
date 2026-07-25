@@ -75,8 +75,21 @@ progression.
 
 ## Published results
 
-Curated result sets (raw artifacts stay git-ignored; only these tables are committed):
+Curated result sets (raw artifacts stay git-ignored; only these tables are committed).
 
-- [same-zone · `Standard_D2s_v5` · 2026-07-23](results/results-same-zone-d2s_v5-20260723.md)
-- [cross-zone · `Standard_D2s_v5` · 2026-07-23](results/results-cross-zone-d2s_v5-20260723.md)
-- [cross-region · `Standard_D2s_v5` · 2026-07-23](results/results-cross-region-d2s_v5-20260723.md)
+### Current — 5 transports (incl. quiche)
+
+`Standard_D2s_v5`, Ubuntu 26.04, `quiche-h3` 0.0.3:
+
+- [same-zone · 2026-07-25](results/results-same-zone-d2s_v5-20260725.md)
+- [cross-zone · 2026-07-25](results/results-cross-zone-d2s_v5-20260725.md)
+- [cross-region · 2026-07-25](results/results-cross-region-d2s_v5-20260725.md)
+
+### Archived
+
+Earlier runs, before quiche was fixed and added to the matrix (4 transports:
+`tcp-tls`, `quinn`, `msquic`, `s2n-quic`):
+
+- [same-zone · `Standard_D2s_v5` · 2026-07-23](results/archive/results-same-zone-d2s_v5-20260723.md)
+- [cross-zone · `Standard_D2s_v5` · 2026-07-23](results/archive/results-cross-zone-d2s_v5-20260723.md)
+- [cross-region · `Standard_D2s_v5` · 2026-07-23](results/archive/results-cross-region-d2s_v5-20260723.md)

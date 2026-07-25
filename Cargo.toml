@@ -43,7 +43,7 @@ hdrhistogram = { version = "7", default-features = false }
 serde_json = "1"
 
 # quiche-h3 bridge crate (implements the h3::quic traits over tokio-quiche)
-quiche-h3 = "0.0.2"
+quiche-h3 = "0.0.3"
 
 # crates in this workspace
 tonic-h3 = { path = "tonic-h3" }

@@ -27,12 +27,12 @@ come from the deployed infrastructure, not from the scenario list).
 | `quinn`    | HTTP/3 over QUIC      | production   | The primary HTTP/3 implementation. |
 | `msquic`   | HTTP/3 over QUIC      | experimental | Microsoft's C QUIC library (native `libmsquic`). |
 | `s2n-quic` | HTTP/3 over QUIC      | experimental | AWS's QUIC implementation. |
-| `quiche`   | HTTP/3 over QUIC      | experimental | Cloudflare's QUIC — **unstable at high concurrency**. |
+| `quiche`   | HTTP/3 over QUIC      | experimental | Cloudflare's QUIC. |
 
-> **quiche caveat.** `quiche` stalls above a single in-flight request, so the
-> orchestration **forces `--concurrency 1`** for it regardless of what the
-> scenario asks. Treat `quiche` numbers as single-stream only and never compare
-> its throughput head-to-head with a concurrent `quinn`/`tcp-tls` run.
+> **quiche note.** `quiche` previously stalled above a single in-flight request,
+> and the orchestration forced `--concurrency 1` for it. That stall was fixed in
+> `quiche-h3` 0.0.3, so `quiche` now runs at any concurrency and is a full member
+> of the comparison matrix like every other transport.
 
 ### Payload sizes
 
@@ -46,7 +46,7 @@ come from the deployed infrastructure, not from the scenario list).
 
 | Concurrency | What it isolates |
 |-------------|------------------|
-| `1`   | Pure round-trip latency (p50/p90/p99 with no queuing). Also the only valid setting for `quiche`. |
+| `1`   | Pure round-trip latency (p50/p90/p99 with no queuing). |
 | `16`  | Moderate parallelism — typical service load. |
 | `32`+ | Saturation — where multiplexing, congestion control, and CPU start to bound throughput. |
 
@@ -97,7 +97,7 @@ experimental backend:
 | 3 | `quinn`    | 4 KiB   | 32          | count 20 000 |
 | 4 | `msquic`   | 64 B    | 16          | count 10 000 |
 | 5 | `s2n-quic` | 64 B    | 16          | count 10 000 |
-| 6 | `quiche`   | 64 B    | 1 (forced)  | count 5 000  |
+| 6 | `quiche`   | 64 B    | 16          | count 10 000 |
 
 ## Extended matrix (`scenarios.yml`)
 
