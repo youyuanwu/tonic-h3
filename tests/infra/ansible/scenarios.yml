@@ -5,16 +5,17 @@
 # results are directly comparable transport-by-transport. Five workload points
 # (a latency probe, two concurrency levels at the small RPC payload, plus a
 # medium and a large payload throughput point) are applied identically to each
-# of the four comparable transports:
+# of the five transports:
 #
 #   tcp-tls  - tonic + tonic-tls over TCP/TLS (HTTP/2). The non-QUIC baseline.
 #   quinn    - tonic-h3 over QUIC (the production-supported backend).
 #   msquic   - tonic-h3 over QUIC (experimental backend).
 #   s2n-quic - tonic-h3 over QUIC (experimental backend).
+#   quiche   - tonic-h3 over QUIC (experimental backend).
 #
-# quiche is intentionally EXCLUDED: it stalls above concurrency 1, so it cannot
-# run the shared concurrency>=32 points and would not be an apples-to-apples
-# comparison. Evaluate it separately with a concurrency-1 matrix if needed.
+# NOTE: quiche previously stalled above concurrency 1 and was excluded from the
+# concurrent points; that was fixed in quiche-h3 0.0.3, so it now runs the full
+# matrix like every other transport.
 #
 # Budget choice: throughput points use a fixed wall-clock `duration` (steady
 # state, identical measurement window for every transport); the latency point
@@ -33,7 +34,7 @@
 #     -e bench_port=50051 -e bench_libmsquic_version=2.5.8
 #
 # Each scenario is a dict:
-#   transport     : tcp-tls | quinn | msquic | s2n-quic
+#   transport     : tcp-tls | quinn | msquic | s2n-quic | quiche
 #   payload_size  : echo payload in bytes
 #   concurrency   : in-flight workers
 #   count | duration : request budget (fixed count) OR wall-clock seconds (one)
@@ -49,6 +50,7 @@ scenarios:
   - { transport: quinn,    payload_size: 64,    concurrency: 1,   count: 20000 }
   - { transport: msquic,   payload_size: 64,    concurrency: 1,   count: 20000 }
   - { transport: s2n-quic, payload_size: 64,    concurrency: 1,   count: 20000 }
+  - { transport: quiche,   payload_size: 64,    concurrency: 1,   count: 20000 }
 
   # === Point 2: throughput - small payload, moderate concurrency (c=32) ======
   # The primary small-RPC throughput comparison point.
@@ -56,6 +58,7 @@ scenarios:
   - { transport: quinn,    payload_size: 64,    concurrency: 32,  duration: 15 }
   - { transport: msquic,   payload_size: 64,    concurrency: 32,  duration: 15 }
   - { transport: s2n-quic, payload_size: 64,    concurrency: 32,  duration: 15 }
+  - { transport: quiche,   payload_size: 64,    concurrency: 32,  duration: 15 }
 
   # === Point 3: throughput - small payload, high concurrency (c=128) =========
   # Stresses stream multiplexing / scheduling under heavier in-flight load.
@@ -63,6 +66,7 @@ scenarios:
   - { transport: quinn,    payload_size: 64,    concurrency: 128, duration: 15 }
   - { transport: msquic,   payload_size: 64,    concurrency: 128, duration: 15 }
   - { transport: s2n-quic, payload_size: 64,    concurrency: 128, duration: 15 }
+  - { transport: quiche,   payload_size: 64,    concurrency: 128, duration: 15 }
 
   # === Point 4: throughput - medium payload (4 KiB), moderate concurrency ====
   # Representative message size; balances framing overhead vs. bandwidth.
@@ -70,6 +74,7 @@ scenarios:
   - { transport: quinn,    payload_size: 4096,  concurrency: 32,  duration: 15 }
   - { transport: msquic,   payload_size: 4096,  concurrency: 32,  duration: 15 }
   - { transport: s2n-quic, payload_size: 4096,  concurrency: 32,  duration: 15 }
+  - { transport: quiche,   payload_size: 4096,  concurrency: 32,  duration: 15 }
 
   # === Point 5: throughput - large payload (64 KiB), moderate concurrency ====
   # Bandwidth-bound regime; surfaces per-transport copy/flow-control overhead.
@@ -77,3 +82,4 @@ scenarios:
   - { transport: quinn,    payload_size: 65536, concurrency: 32,  duration: 15 }
   - { transport: msquic,   payload_size: 65536, concurrency: 32,  duration: 15 }
   - { transport: s2n-quic, payload_size: 65536, concurrency: 32,  duration: 15 }
+  - { transport: quiche,   payload_size: 65536, concurrency: 32,  duration: 15 }

@@ -170,9 +170,8 @@ with a `block/rescue/always` lifecycle:
    (graceful QUIC teardown frees the port), verifying the process exited before
    the next scenario.
 
-`quiche` is automatically pinned to `--concurrency 1`. The `topology`,
-`vm_size`, and `region` you pass are recorded in every filename and metadata
-sidecar (defaulting to `unknown` if omitted), so cross-SKU runs stay
+The `topology`, `vm_size`, and `region` you pass are recorded in every filename
+and metadata sidecar (defaulting to `unknown` if omitted), so cross-SKU runs stay
 distinguishable. See the [scenario matrix](scenario-matrix.md) for the axes.
 
 ### Where results land

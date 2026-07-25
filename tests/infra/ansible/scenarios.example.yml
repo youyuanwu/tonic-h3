@@ -11,7 +11,7 @@
 # Each scenario is a dict:
 #   transport     : tcp-tls | quinn | msquic | s2n-quic | quiche
 #   payload_size  : echo payload in bytes
-#   concurrency   : in-flight workers (quiche is auto-forced to 1)
+#   concurrency   : in-flight workers
 #   count | duration : request budget (fixed count) OR wall-clock seconds (exactly one)
 #   port          : (optional) data-plane port override; defaults to bench_port
 #
@@ -31,8 +31,8 @@ scenarios:
   # --- Experimental backends (evaluation only) ---
   - { transport: msquic,   payload_size: 64,   concurrency: 16,  count: 20000 }
   - { transport: s2n-quic, payload_size: 64,   concurrency: 16,  count: 20000 }
-  # quiche: concurrency is forced to 1 by the playbook regardless of this value.
-  - { transport: quiche,   payload_size: 64,   concurrency: 1,   count: 10000 }
+  # quiche now runs at any concurrency (the old c=1 stall was fixed in quiche-h3 0.0.3).
+  - { transport: quiche,   payload_size: 64,   concurrency: 16,  count: 10000 }
 
   # --- Duration-based steady-state sample (demonstrates the duration budget) ---
   - { transport: quinn,   payload_size: 64,    concurrency: 32,  duration: 30 }

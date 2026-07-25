@@ -2409,9 +2409,9 @@ dependencies = [
 
 [[package]]
 name = "quiche-h3"
-version = "0.0.2"
+version = "0.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9f0a73289e282a0066258d81d90dd4d01d3bce47a1c39ac207543950ce2bb522"
+checksum = "f28c06c8f0aa552e6ea22cc1dbd37ae63a17a104c837d5e08aabf44aae62b1f8"
 dependencies = [
  "bytes",
  "futures",
