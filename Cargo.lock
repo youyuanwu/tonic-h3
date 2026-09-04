@@ -223,11 +223,7 @@ dependencies = [
  "h3-util",
  "hyper",
  "hyper-util",
- "quinn",
- "rcgen",
- "rustls",
  "tokio",
- "tokio-util",
  "tower",
  "tracing",
 ]

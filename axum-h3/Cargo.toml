@@ -23,11 +23,3 @@ tower.workspace = true
 h3.workspace = true
 hyper.workspace = true
 futures.workspace = true
-
-[dev-dependencies]
-h3-util = { workspace = true, features = ["quinn"] }
-quinn = { workspace = true, default-features = false, features = ["aws-lc-rs", "rustls-aws-lc-rs", "runtime-tokio"] }
-rcgen.workspace = true
-rustls.workspace = true
-tokio = { workspace = true, features = ["rt-multi-thread"] }
-tokio-util.workspace = true
