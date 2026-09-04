@@ -22,7 +22,7 @@ tracing = []
 test = false
 
 [dependencies]
-h3.workspace = true
+h3 = { workspace = true, features = ["i-implement-a-third-party-backend-and-opt-into-breaking-changes"] }
 hyper.workspace = true
 tokio = { workspace = true, features = ["sync", "macros", "rt", "net"] }
 tracing.workspace = true

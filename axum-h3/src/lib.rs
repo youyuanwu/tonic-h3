@@ -44,18 +44,6 @@ use axum::body::Bytes;
 use h3_util::{server::H3Acceptor, server_body::H3IncomingServer};
 use hyper::{Request, Response, body::Body, rt::Executor};
 
-fn is_benign_connection_close(error: &h3::error::ConnectionError) -> bool {
-    if error.is_h3_no_error() {
-        return true;
-    }
-
-    // h3-quinn 0.0.10 erases QUIC transport close codes into an `Undefined`
-    // h3 error. Treat only QUIC NO_ERROR as benign; other transport and
-    // application errors remain warnings.
-    error.to_string()
-        == "Remote error: Error undefined by h3: aborted by peer: the connection is being closed abruptly in the absence of any error"
-}
-
 /// Accept each connection from acceptor, then for each connection
 /// accept each request. Spawn a task to handle each request.
 async fn serve_inner<AC, F>(
@@ -128,7 +116,7 @@ where
                         }
                     },
                     Err(e) => {
-                        if is_benign_connection_close(&e) {
+                        if h3_util::server::is_benign_connection_close(&e) {
                             tracing::trace!("server connection ended without error: {e}");
                         } else {
                             tracing::warn!("server connection accept failed: {}", e);
