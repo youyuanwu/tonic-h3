@@ -52,6 +52,27 @@ fn client_endpoint(certificate: CertificateDer<'static>) -> quinn::Endpoint {
     endpoint
 }
 
+fn transport_close(code: quinn::TransportErrorCode) -> h3::error::ConnectionError {
+    let close = quinn::ConnectionError::ConnectionClosed(quinn::ConnectionClose {
+        error_code: code,
+        frame_type: None,
+        reason: Bytes::new(),
+    });
+    h3::error::ConnectionError::Remote(h3::quic::ConnectionErrorIncoming::Undefined(Arc::new(
+        close,
+    )))
+}
+
+#[test]
+fn only_transport_no_error_is_benign() {
+    assert!(h3_util::server::is_benign_connection_close(
+        &transport_close(quinn::TransportErrorCode::NO_ERROR)
+    ));
+    assert!(!h3_util::server::is_benign_connection_close(
+        &transport_close(quinn::TransportErrorCode::INTERNAL_ERROR)
+    ));
+}
+
 #[tokio::test]
 async fn ignored_request_body_is_stopped_without_error() {
     let (endpoint, certificate) = server_endpoint();
