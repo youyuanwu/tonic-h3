@@ -8,6 +8,7 @@ use hyper::body::Buf;
 use tokio_util::sync::CancellationToken;
 
 async fn root() -> &'static str {
+    // No request extractor is used, so axum drops the request body without reading it.
     "Hello, World from axum!"
 }
 
@@ -129,7 +130,12 @@ async fn ignored_request_body_is_stopped_without_error() {
     })
     .await
     .expect("server did not stop the ignored request body");
-    assert_eq!(stop.to_string(), "Remote reset: H3_NO_ERROR");
+    match stop {
+        h3::error::StreamError::RemoteTerminate { code } => {
+            assert_eq!(code, h3::error::Code::H3_NO_ERROR);
+        }
+        error => panic!("expected remote stream termination, got {error:?}"),
+    }
 
     drop(sender);
     client_endpoint.close(0_u16.into(), b"test complete");
