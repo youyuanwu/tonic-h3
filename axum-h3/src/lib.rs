@@ -116,8 +116,8 @@ where
                         }
                     },
                     Err(e) => {
-                        if e.is_h3_no_error() {
-                            tracing::trace!("server connection ended with h3 no error:");
+                        if h3_util::server::is_benign_connection_close(&e) {
+                            tracing::trace!("server connection ended without error: {e}");
                         } else {
                             tracing::warn!("server connection accept failed: {}", e);
                         }

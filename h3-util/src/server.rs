@@ -3,6 +3,29 @@ use hyper::body::Bytes;
 
 //use crate::server_body::H3IncomingServer;
 
+/// Returns whether a connection ended without an HTTP/3 or transport error.
+pub fn is_benign_connection_close(error: &h3::error::ConnectionError) -> bool {
+    if error.is_h3_no_error() {
+        return true;
+    }
+
+    #[cfg(feature = "quinn")]
+    if let h3::error::ConnectionError::Remote(h3::quic::ConnectionErrorIncoming::Undefined(source)) =
+        error
+        && let Some(quinn_error) = source
+            .as_ref()
+            .downcast_ref::<h3_quinn::quinn::ConnectionError>()
+    {
+        return matches!(
+            quinn_error,
+            h3_quinn::quinn::ConnectionError::ConnectionClosed(close)
+                if close.error_code == h3_quinn::quinn::TransportErrorCode::NO_ERROR
+        );
+    }
+
+    false
+}
+
 pub trait H3Acceptor {
     type CONN: h3::quic::Connection<
             Bytes,

@@ -35,11 +35,10 @@ where
 {
     fn drop(&mut self) {
         if !self.finished {
-            // The incoming request body was dropped before it was fully
-            // consumed. Tell the peer to stop sending with a proper HTTP/3 code
-            // (quinn would otherwise send STOP_SENDING with code 0). Best-effort:
-            // ignored if the stream is already finished or reset.
-            self.s.stop_sending(h3::error::Code::H3_REQUEST_CANCELLED);
+            // RFC 9114 section 4.1 permits a server that has produced a complete
+            // response without consuming the request body to abort reading it,
+            // but requires H3_NO_ERROR so the client keeps the response.
+            self.s.stop_sending(h3::error::Code::H3_NO_ERROR);
         }
     }
 }
