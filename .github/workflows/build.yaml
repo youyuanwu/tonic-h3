@@ -21,9 +21,9 @@ jobs:
     strategy:
       matrix:
         os: [ windows-latest, ubuntu-latest ]
-        # 1.90.0 is the MSRV; the second entry is the pinned toolchain read
+        # 1.93.1 is the MSRV; the second entry is the pinned toolchain read
         # from rust-toolchain.toml by the `toolchain` job.
-        rust: [ "1.90.0", "${{ needs.toolchain.outputs.channel }}" ]
+        rust: [ "1.93.1", "${{ needs.toolchain.outputs.channel }}" ]
       fail-fast: false
     env:
       SCCACHE_GHA_ENABLED: "true"
