@@ -15,7 +15,7 @@ prost-build = "0.14"
 quinn = { version = "0.11", default-features = false, features = [] }
 rcgen = { version = "0.14", default-features = false, features = ["crypto", "aws_lc_rs", "pem"] }
 rustls = { version = "0.23", default-features = false, features = ["std", "aws_lc_rs"] }
-serial_test = "3"
+serial_test = "4"
 test-log = { version = "0.2", default-features = false, features = ["trace"] }
 tokio = { version = "1", default-features = false }
 tokio-util = "0.7"
@@ -43,7 +43,7 @@ hdrhistogram = { version = "7", default-features = false }
 serde_json = "1"
 
 # quiche-h3 bridge crate (implements the h3::quic traits over tokio-quiche)
-quiche-h3 = "0.0.3"
+quiche-h3 = "0.0.4"
 
 # crates in this workspace
 tonic-h3 = { path = "tonic-h3" }
